@@ -24,48 +24,72 @@ type Cache[T any] struct {
 	record    bool
 }
 
-// Set sets the value of the cache with a timeout
+func NewCache[T any](ctx context.Context, key string, initial T) (Cache[T], error) {
+	dispatch, err := cacheDispatch(ctx)
+	if err != nil {
+		return Cache[T]{}, err
+	}
+
+	if _, err := getCache[T](dispatch.ConnID, key); err == nil || errors.Is(err, ErrCacheWrongType) {
+		return Cache[T]{}, ErrCacheExists
+	}
+
+	cache := Cache[T]{
+		data:      initial,
+		storeKey:  dispatch.ConnID,
+		cacheKey:  key,
+		createdAt: time.Now(),
+		updatedAt: time.Now(),
+		timeOut:   config.CacheTimeOut,
+	}
+
+	if err := createCache(cache); err != nil {
+		return Cache[T]{}, err
+	}
+	return cache, nil
+}
+
+// UseCache takes a generic type, context, and a key and returns a Cache of the type.
+//
+// https://pkg.go.dev/github.com/snburman/fcmp#UseCache
+func UseCache[T any](ctx context.Context, key string) (Cache[T], error) {
+	dispatch, err := cacheDispatch(ctx)
+	if err != nil {
+		return Cache[T]{}, err
+	}
+	return getCache[T](dispatch.ConnID, key)
+}
+
+// Set sets the value of the cache with a timeout.
 //
 // Set timeout to 0 or leave empty for default expiry.
 func (c *Cache[T]) Set(data T, timeout ...time.Duration) error {
-	c.data = data
-	cache, err := getCache[T](c.storeKey, c.cacheKey)
+	current, err := getCache[T](c.storeKey, c.cacheKey)
 	if err != nil && !errors.Is(err, ErrCacheNotFound) {
 		return err
 	}
+
 	if err == nil {
-		c.createdAt = cache.createdAt
-		c.record = cache.record
+		c.createdAt = current.createdAt
+		c.record = current.record
+	}
+	if c.createdAt.IsZero() {
+		c.createdAt = time.Now()
 	}
 
-	for _, t := range timeout {
-		switch t {
-		case 0:
-			if errors.Is(err, ErrCacheNotFound) {
-				c.timeOut = config.CacheTimeOut
-			} else {
-				c.timeOut = cache.timeOut
-			}
-		default:
-			if t > 0 && t < config.CacheTimeOut {
-				c.timeOut = t
-			} else {
-				c.timeOut = config.CacheTimeOut
-			}
-		}
-	}
-	if len(timeout) == 0 {
-		c.timeOut = config.CacheTimeOut
-	}
-
+	c.data = data
+	c.timeOut = resolveCacheTimeout(current, timeout...)
 	c.updatedAt = time.Now()
 
-	go c.watchExpiry()
-	err = setCache(c.storeKey, c.cacheKey, *c)
-	return err
+	if err := setCache(c.storeKey, c.cacheKey, *c); err != nil {
+		return err
+	}
+
+	go c.watchExpiry(c.updatedAt)
+	return nil
 }
 
-// Value returns the current value of the cache
+// Value returns the current value of the cache.
 func (c *Cache[T]) Value() T {
 	cache, err := getCache[T](c.storeKey, c.cacheKey)
 	if err != nil {
@@ -74,17 +98,17 @@ func (c *Cache[T]) Value() T {
 	return cache.data
 }
 
-// Delete removes the cache from the store
+// Delete removes the cache from the store.
 func (c *Cache[T]) Delete() {
 	deleteCache(c.storeKey, c.cacheKey)
 }
 
-// CreatedAt returns the time the cache was created
+// CreatedAt returns the time the cache was created.
 func (c *Cache[T]) CreatedAt() time.Time {
 	return c.createdAt
 }
 
-// UpdatedAt returns the time the cache was last updated
+// UpdatedAt returns the time the cache was last updated.
 func (c *Cache[T]) UpdatedAt() time.Time {
 	return c.updatedAt
 }
@@ -93,284 +117,294 @@ func (c *Cache[T]) TimeOut() time.Duration {
 	return c.timeOut
 }
 
-// Expiry returns expiry time of the cache
+// Expiry returns expiry time of the cache.
 func (c *Cache[T]) Expiry() time.Time {
 	return c.updatedAt.Add(c.timeOut)
 }
 
-// History returns the history of the cache
-func (c *Cache[T]) Record(r bool) {
-	c.record = r
+// Record controls whether future cache updates are stored in history.
+func (c *Cache[T]) Record(record bool) {
+	c.record = record
+	current, err := getCache[T](c.storeKey, c.cacheKey)
+	if err != nil {
+		return
+	}
+	current.record = record
+	_ = saveCache(c.storeKey, c.cacheKey, current)
 }
 
-// GetHistory returns the history of the cache
+// History returns the recorded cache values.
 func (c *Cache[T]) History() (map[string]T, bool) {
-	c.record = false
-	onfns.mu.Lock()
-	defer onfns.mu.Unlock()
-	h, ok := onfns.history[c.storeKey+c.cacheKey]
+	return cacheHistory[T](&cacheEvents, c.id())
+}
+
+func (c *Cache[T]) id() string {
+	return cacheID(c.storeKey, c.cacheKey)
+}
+
+func (c *Cache[T]) watchExpiry(updatedAt time.Time) {
+	if c.timeOut <= 0 {
+		return
+	}
+
+	time.Sleep(c.timeOut)
+
+	current, err := getCache[T](c.storeKey, c.cacheKey)
+	if err != nil || !current.updatedAt.Equal(updatedAt) || time.Now().Before(current.Expiry()) {
+		return
+	}
+
+	callOnFn(onTimeOut, current)
+	current.Delete()
+}
+
+func cacheDispatch(ctx context.Context) (dispatchDetails, error) {
+	dispatch, ok := dispatchFromContext(ctx)
+	if !ok {
+		return dispatchDetails{}, ErrCtxMissingDispatch
+	}
+	return dispatch, nil
+}
+
+func resolveCacheTimeout[T any](current Cache[T], timeout ...time.Duration) time.Duration {
+	if len(timeout) == 0 {
+		return config.CacheTimeOut
+	}
+
+	requested := timeout[len(timeout)-1]
+	if requested == 0 && current.timeOut > 0 {
+		return current.timeOut
+	}
+	if requested > 0 && requested < config.CacheTimeOut {
+		return requested
+	}
+	return config.CacheTimeOut
+}
+
+// OnCacheTimeOut sets a function to be called when the cache expires.
+func OnCacheTimeOut[T any](c Cache[T], f func()) {
+	cacheEvents.setTimeout(c.id(), f)
+}
+
+// OnCacheChange sets a function to be called when the cache is updated.
+func OnCacheChange[T any](c Cache[T], f func()) {
+	cacheEvents.setChange(c.id(), f)
+}
+
+func callOnFn[T any](on CacheOnFn, c Cache[T]) {
+	switch on {
+	case onChange:
+		cacheEvents.callChange(c.id(), c.data, c.record)
+	case onTimeOut:
+		cacheEvents.callTimeout(c.id())
+	}
+}
+
+var cacheEvents = newCacheEventRegistry()
+
+type cacheEventRegistry struct {
+	mu        sync.Mutex
+	onchange  map[string]func()
+	ontimeout map[string]func()
+	history   map[string]map[string]any
+}
+
+func newCacheEventRegistry() cacheEventRegistry {
+	return cacheEventRegistry{
+		onchange:  make(map[string]func()),
+		ontimeout: make(map[string]func()),
+		history:   make(map[string]map[string]any),
+	}
+}
+
+func (r *cacheEventRegistry) Delete(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.onchange, id)
+	delete(r.ontimeout, id)
+	delete(r.history, id)
+}
+
+func (r *cacheEventRegistry) setChange(id string, f func()) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onchange[id] = f
+}
+
+func (r *cacheEventRegistry) setTimeout(id string, f func()) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ontimeout[id] = f
+}
+
+func (r *cacheEventRegistry) callChange(id string, data any, record bool) {
+	r.mu.Lock()
+	if record {
+		r.recordHistory(id, data)
+	}
+	fn := r.onchange[id]
+	r.mu.Unlock()
+
+	if fn != nil {
+		fn()
+	}
+}
+
+func (r *cacheEventRegistry) callTimeout(id string) {
+	r.mu.Lock()
+	fn := r.ontimeout[id]
+	r.mu.Unlock()
+
+	if fn != nil {
+		fn()
+	}
+}
+
+func cacheHistory[T any](r *cacheEventRegistry, id string) (map[string]T, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	records, ok := r.history[id]
 	if !ok {
 		return make(map[string]T), false
 	}
-	history := make(map[string]T)
-	for k, v := range h {
-		t, ok := v.(T)
+
+	history := make(map[string]T, len(records))
+	for recordedAt, data := range records {
+		value, ok := data.(T)
 		if !ok {
 			return make(map[string]T), false
 		}
-		history[k] = t
+		history[recordedAt] = value
 	}
 	return history, true
 }
 
-// watchExpiry watches the cache for expiry and, when it expires,
-// calls the onTimeOut function and deletes the cache.
-func (c *Cache[T]) watchExpiry() {
-	if c.timeOut <= 0 {
-		return
+func (r *cacheEventRegistry) recordHistory(id string, data any) {
+	if _, ok := r.history[id]; !ok {
+		r.history[id] = make(map[string]any)
 	}
-	for {
-		time.Sleep(c.timeOut)
-		if time.Now().After(c.Expiry()) {
-			callOnFn(onTimeOut, *c)
-			c.Delete()
-			break
-		}
-	}
-}
-
-func NewCache[T any](ctx context.Context, key string, initial T) (c Cache[T], err error) {
-	empty := Cache[T]{}
-	dispatch, ok := dispatchFromContext(ctx)
-	if !ok {
-		return empty, ErrCtxMissingDispatch
-	}
-	// Check if the cache already exists
-	_, err = getCache[T](dispatch.ConnID, key)
-	if err == nil {
-		return empty, ErrCacheExists
-	}
-	if errors.Is(err, ErrCacheWrongType) {
-		return empty, ErrCacheExists
-	}
-
-	// Create a new cache
-	cache, ok := newCache(dispatch.ConnID, key, initial)
-	if !ok {
-		return empty, ErrStoreNotFound
-	}
-	// Set the initial value of the cache
-	cache.data = initial
-	err = setCache(dispatch.ConnID, key, cache)
-	if err != nil {
-		return empty, err
-	}
-	return cache, nil
-}
-
-// UseCache takes a generic type, context, and a key and returns a Cache of the type
-//
-// https://pkg.go.dev/github.com/snburman/fcmp#UseCache
-func UseCache[T any](ctx context.Context, key string) (c Cache[T], err error) {
-	empty := Cache[T]{}
-	dispatch, ok := dispatchFromContext(ctx)
-	if !ok {
-		return empty, ErrCtxMissingDispatch
-	}
-	cache, err := getCache[T](dispatch.ConnID, key)
-	if err != nil {
-		return empty, err
-	}
-	return cache, nil
-}
-
-// User set callback functions for cache events
-
-type _onfns struct {
-	mu        sync.Mutex
-	onchange  map[string]any
-	ontimeout map[string]any
-	history   map[string]map[string]any
-}
-
-var onfns = _onfns{
-	onchange:  make(map[string]any),
-	ontimeout: make(map[string]any),
-	history:   make(map[string]map[string]any),
-}
-
-func (o *_onfns) Delete(id string) {
-	onfns.mu.Lock()
-	defer onfns.mu.Unlock()
-	delete(onfns.onchange, id)
-	delete(onfns.ontimeout, id)
-}
-
-func (o *_onfns) AddHistory(id string, data any) {
-	onfns.mu.Lock()
-	defer onfns.mu.Unlock()
-	if _, ok := onfns.history[id]; !ok {
-		onfns.history[id] = make(map[string]any)
-	}
-	onfns.history[id][time.Now().String()] = data
-}
-
-// OnCacheTimeOut sets a function to be called when the cache expires
-func OnCacheTimeOut[T any](c Cache[T], f func()) {
-	onfns.mu.Lock()
-	defer onfns.mu.Unlock()
-	onfns.ontimeout[c.storeKey+c.cacheKey] = f
-}
-
-// OnChange sets a function to be called when the cache is updated
-func OnCacheChange[T any](c Cache[T], f func()) {
-	onfns.mu.Lock()
-	defer onfns.mu.Unlock()
-	onfns.onchange[c.storeKey+c.cacheKey] = f
-}
-
-func callOnFn[T any](on CacheOnFn, c Cache[T]) {
-	onfns.mu.Lock()
-	defer onfns.mu.Unlock()
-	switch on {
-	case onChange:
-		if c.record {
-			id := c.storeKey + c.cacheKey
-			if _, ok := onfns.history[id]; !ok {
-				onfns.history[id] = make(map[string]any)
-			}
-			onfns.history[id][time.Now().String()] = c
-		}
-		if f, ok := onfns.onchange[c.storeKey+c.cacheKey]; ok {
-			fn, ok := f.(func())
-			if !ok {
-				return
-			}
-			fn()
-		}
-	case onTimeOut:
-		if f, ok := onfns.ontimeout[c.storeKey+c.cacheKey]; ok {
-			fn, ok := f.(func())
-			if !ok {
-				return
-			}
-			fn()
-		}
-	}
+	r.history[id][time.Now().String()] = data
 }
 
 // NOTE: The following is some rewritten logic from package mnemo and will be extracted.
 
-var sm = storeManager{
-	stores: make(map[interface{}]*store),
-}
+var sm = newStoreManager()
 
 type storeManager struct {
 	mu     sync.Mutex
-	stores map[interface{}]*store
+	stores map[string]*cacheStore
 }
 
-type store struct {
+type cacheStore struct {
 	mu    sync.Mutex
-	cache map[any]any
+	cache map[string]any
 }
 
-func (sm *storeManager) get(key interface{}) (*store, bool) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	s, ok := sm.stores[key]
-	if !ok {
-		return nil, false
-	}
-	return s, true
-}
-
-func (sm *storeManager) set(key interface{}) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	sm.stores[key] = &store{
-		cache: make(map[any]any),
+func newStoreManager() storeManager {
+	return storeManager{
+		stores: make(map[string]*cacheStore),
 	}
 }
 
-func (sm *storeManager) delete(key interface{}) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	delete(sm.stores, key)
+func (m *storeManager) get(key string) (*cacheStore, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	store, ok := m.stores[key]
+	return store, ok
+}
+
+func (m *storeManager) ensure(key string) *cacheStore {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	store, ok := m.stores[key]
+	if ok {
+		return store
+	}
+
+	store = &cacheStore{
+		cache: make(map[string]any),
+	}
+	m.stores[key] = store
+	return store
+}
+
+func (m *storeManager) delete(key string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.stores, key)
+}
+
+func createCache[T any](c Cache[T]) error {
+	sm.ensure(c.storeKey)
+	return setCache(c.storeKey, c.cacheKey, c)
 }
 
 func setCache[T any](storeKey string, cacheKey string, c Cache[T]) error {
-	s, ok := sm.get(storeKey)
-	if !ok {
-		return ErrStoreNotFound
+	if err := saveCache(storeKey, cacheKey, c); err != nil {
+		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.cache[cacheKey] = c
 	callOnFn(onChange, c)
 	return nil
 }
 
-func newCache[T any](storeKey string, cacheKey string, cache T) (Cache[T], bool) {
-	s, ok := sm.get(storeKey)
+func saveCache[T any](storeKey string, cacheKey string, c Cache[T]) error {
+	store, ok := sm.get(storeKey)
 	if !ok {
-		sm.set(storeKey)
-		s, ok = sm.get(storeKey)
-		if !ok {
-			config.Logger.Debug("failed to create new cache store", "storeKey", storeKey, "cacheKey", cacheKey)
-			return Cache[T]{}, false
-		}
-		s.cache = make(map[any]any)
+		return ErrStoreNotFound
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c := &Cache[any]{
-		storeKey:  storeKey,
-		cacheKey:  cacheKey,
-		createdAt: time.Now(),
-		updatedAt: time.Now(),
-		data:      cache,
-	}
-	s.cache[cacheKey] = c
 
-	copy := Cache[T]{
-		storeKey:  storeKey,
-		cacheKey:  cacheKey,
-		createdAt: c.createdAt,
-		updatedAt: c.updatedAt,
-		data:      cache,
-	}
-	return copy, true
+	store.set(cacheKey, c)
+	return nil
 }
 
 func getCache[T any](storeKey string, cacheKey string) (Cache[T], error) {
-	cache := Cache[T]{}
-	s, ok := sm.get(storeKey)
+	store, ok := sm.get(storeKey)
 	if !ok {
-		return cache, ErrCacheNotFound
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, ok := s.cache[cacheKey]
-	if !ok {
-		return cache, ErrCacheNotFound
+		return Cache[T]{}, ErrCacheNotFound
 	}
 
-	d, ok := c.(Cache[T])
+	value, ok := store.get(cacheKey)
 	if !ok {
-		return cache, ErrCacheWrongType
+		return Cache[T]{}, ErrCacheNotFound
 	}
 
-	return d, nil
+	cache, ok := value.(Cache[T])
+	if !ok {
+		return Cache[T]{}, ErrCacheWrongType
+	}
+	return cache, nil
 }
 
 func deleteCache(storeKey string, cacheKey string) {
-	s, ok := sm.get(storeKey)
+	store, ok := sm.get(storeKey)
 	if !ok {
 		config.Logger.Debug("could not delete cache, no such store", "storeKey", storeKey, "cacheKey", cacheKey)
 		return
 	}
+	store.delete(cacheKey)
+}
+
+func (s *cacheStore) get(key string) (any, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.cache, cacheKey)
+	value, ok := s.cache[key]
+	return value, ok
+}
+
+func (s *cacheStore) set(key string, value any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cache[key] = value
+}
+
+func (s *cacheStore) delete(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.cache, key)
+}
+
+func cacheID(storeKey string, cacheKey string) string {
+	return storeKey + ":" + cacheKey
 }

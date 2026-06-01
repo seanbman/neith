@@ -106,6 +106,7 @@ func TestUseCache(t *testing.T) {
 		{"testUseCacheTimeOut", testUseCacheTimeOut},
 		{"testUseCacheOnCacheTimeOut", testUseCacheOnCacheTimeOut},
 		{"testUseCacheOnChange", testUseCacheOnChange},
+		{"testUseCacheRecordHistory", testUseCacheRecordHistory},
 		{"testUseCacheErr", testUseCacheErr},
 	}
 
@@ -225,6 +226,35 @@ func testUseCacheOnChange(t *testing.T) {
 	}
 }
 
+func testUseCacheRecordHistory(t *testing.T) {
+	_, err := NewCache(_test_context(), t.Name(), true)
+	if err != nil {
+		t.Error(err)
+	}
+	cache, err := UseCache[bool](_test_context(), t.Name())
+	if err != nil {
+		t.Error(err)
+	}
+
+	cache.Record(true)
+	if err := cache.Set(false); err != nil {
+		t.Error(err)
+	}
+
+	history, ok := cache.History()
+	if !ok {
+		t.Fatal("expected history to be recorded")
+	}
+	if len(history) != 1 {
+		t.Fatalf("expected 1 history entry, got %d", len(history))
+	}
+	for _, value := range history {
+		if value {
+			t.Errorf("expected recorded value false, got %v", value)
+		}
+	}
+}
+
 func testUseCacheErr(t *testing.T) {
 	ctx := _test_context()
 	_, err := UseCache[bool](ctx, "test")
@@ -239,14 +269,8 @@ type testStruct struct {
 }
 
 func resetTestCacheStore() {
-	sm = storeManager{
-		stores: make(map[interface{}]*store),
-	}
-	onfns = _onfns{
-		onchange:  make(map[string]any),
-		ontimeout: make(map[string]any),
-		history:   make(map[string]map[string]any),
-	}
+	sm = newStoreManager()
+	cacheEvents = newCacheEventRegistry()
 }
 
 func BenchmarkUseCache(b *testing.B) {
