@@ -52,7 +52,10 @@ func TestNewCache(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.name, c.fn)
+		t.Run(c.name, func(t *testing.T) {
+			resetTestCacheStore()
+			c.fn(t)
+		})
 	}
 }
 
@@ -107,7 +110,10 @@ func TestUseCache(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.name, c.fn)
+		t.Run(c.name, func(t *testing.T) {
+			resetTestCacheStore()
+			c.fn(t)
+		})
 	}
 }
 
@@ -130,10 +136,10 @@ func testUseCacheTimeOut(t *testing.T) {
 		value bool
 		exp   time.Duration
 	}{
-		{true, time.Microsecond * 20},
-		{true, time.Microsecond * 30},
-		{true, time.Microsecond * 40},
-		{true, time.Microsecond * 50},
+		{true, time.Millisecond * 5},
+		{true, time.Millisecond * 6},
+		{true, time.Millisecond * 7},
+		{true, time.Millisecond * 8},
 	}
 
 	_, err := NewCache(_test_context(), t.Name(), false)
@@ -187,7 +193,7 @@ func testUseCacheOnCacheTimeOut(t *testing.T) {
 		flag = true
 	})
 
-	timeOut := time.Microsecond * 20
+	timeOut := time.Millisecond * 5
 	cache.Set(false, timeOut)
 	time.Sleep(timeOut * 5)
 	if !flag {
@@ -230,6 +236,17 @@ func testUseCacheErr(t *testing.T) {
 type testStruct struct {
 	Name string
 	Age  int
+}
+
+func resetTestCacheStore() {
+	sm = storeManager{
+		stores: make(map[interface{}]*store),
+	}
+	onfns = _onfns{
+		onchange:  make(map[string]any),
+		ontimeout: make(map[string]any),
+		history:   make(map[string]map[string]any),
+	}
 }
 
 func BenchmarkUseCache(b *testing.B) {

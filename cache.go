@@ -33,6 +33,10 @@ func (c *Cache[T]) Set(data T, timeout ...time.Duration) error {
 	if err != nil && !errors.Is(err, ErrCacheNotFound) {
 		return err
 	}
+	if err == nil {
+		c.createdAt = cache.createdAt
+		c.record = cache.record
+	}
 
 	for _, t := range timeout {
 		switch t {
@@ -54,17 +58,10 @@ func (c *Cache[T]) Set(data T, timeout ...time.Duration) error {
 		c.timeOut = config.CacheTimeOut
 	}
 
-	// If updatedAt is zero, the cache is new
-	// start expiry watcher
-	if cache.updatedAt.IsZero() {
-		c.updatedAt = time.Now()
-		go c.watchExpiry()
-	}
 	c.updatedAt = time.Now()
-	cache.data = data
 
 	go c.watchExpiry()
-	err = setCache(c.storeKey, c.cacheKey, cache)
+	err = setCache(c.storeKey, c.cacheKey, *c)
 	return err
 }
 
@@ -238,7 +235,11 @@ func callOnFn[T any](on CacheOnFn, c Cache[T]) {
 	switch on {
 	case onChange:
 		if c.record {
-			onfns.AddHistory(c.storeKey+c.cacheKey, c)
+			id := c.storeKey + c.cacheKey
+			if _, ok := onfns.history[id]; !ok {
+				onfns.history[id] = make(map[string]any)
+			}
+			onfns.history[id][time.Now().String()] = c
 		}
 		if f, ok := onfns.onchange[c.storeKey+c.cacheKey]; ok {
 			fn, ok := f.(func())

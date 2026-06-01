@@ -97,7 +97,8 @@ export class API {
             return;
         },
         custom: (d: Dispatch) => {
-            d.custom.result = window[d.custom.function](d.custom.data)
+            const fn = (window as unknown as Record<string, (data: Object) => Object>)[d.custom.function];
+            d.custom.result = fn(d.custom.data);
             return d;
         },
     };
