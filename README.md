@@ -213,8 +213,28 @@ Cache helpers include:
 - `CreatedAt()`
 - `UpdatedAt()`
 - `Expiry()`
+- `Record(true)`
+- `History()`
 - `OnCacheChange(cache, fn)`
 - `OnCacheTimeOut(cache, fn)`
+
+Use `Record(true)` before calling `Set` when you want to keep a history of cache
+updates:
+
+```go
+cache, err := fcmp.UseCache[int](ctx, "count")
+if err != nil {
+	return fcmp.FnErr(ctx, err)
+}
+
+cache.Record(true)
+_ = cache.Set(cache.Value() + 1)
+
+history, ok := cache.History()
+if ok {
+	// history contains recorded values keyed by update time.
+}
+```
 
 ## Configuration
 
@@ -243,6 +263,12 @@ Run browser-client tests:
 cd static/assets
 npm install
 npm test
+```
+
+Type-check browser-client TypeScript:
+
+```sh
+tsc -p static/assets/
 ```
 
 Build bundled assets:
