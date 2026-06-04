@@ -249,6 +249,43 @@ fcmp.SetConfig(&fcmp.Config{
 
 Set `Silent: true` or `LogLevel: fcmp.None` to disable package logs.
 
+## Example App
+
+The repository includes an external consumer-style app in
+`examples/readme-setup`. It has its own `go.mod`, imports
+`github.com/snburman/fcmp`, and uses a local `replace` directive so it runs
+against the package source in this repo.
+
+Run it from the repo root:
+
+```sh
+make example
+```
+
+Or run it from the example folder:
+
+```sh
+cd examples/readme-setup
+go run .
+```
+
+Then open:
+
+```text
+http://localhost:8080
+```
+
+The example serves the package's bundled browser client from `static/assets`, so
+it can test local `fcmp` changes without copying generated assets into the
+example folder.
+
+## Detailed Notes
+
+Detailed function notes and usage examples live in `notes`:
+
+- `notes/cache/README.md`
+- `notes/component/README.md`
+
 ## Development
 
 Run Go tests:

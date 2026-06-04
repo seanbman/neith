@@ -8,6 +8,10 @@ make:
 test:
 	go test ./... -v
 	cd static/assets && npm install && npm test
+
+example:
+	cd examples/readme-setup && go run .
+
 coverage:
 	go test ./... -v -coverprofile=cover.out
 	go tool cover -html=coverage.out
