@@ -13,7 +13,7 @@ export class API {
                 window.location.href = d.redirect.url;
                 break;
             default:
-                if(!this.funs[d.function]) {
+                if (!this.funs[d.function]) {
                     this.Error(d, "function not found: " + d.function);
                     break;
                 }
@@ -33,34 +33,15 @@ export class API {
     };
 
     private funs: DispatchFunctions = {
-        ping : (d: Dispatch) => {
+        ping: (d: Dispatch) => {
             d.ping.client = true;
             return d;
         },
         render: (d: Dispatch) => {
-            let elem: Element | null = null;
-            const html = d.render.html;
+            const elem = this.findRenderTarget(d);
+            if (!elem) return;
 
-            if (d.render.tag != "") {
-                elem = document.getElementsByTagName(d.render.tag)[0];
-                if (!elem) {
-                    return this.Error(
-                        d,
-                        "element with tag not found: " + d.render.tag
-                    );
-                }
-            } else if (d.render.target_id != "") {
-                elem = document.getElementById(d.render.target_id);
-                if (!elem) {
-                    return this.Error(
-                        d,
-                        "element with target_id not found: " +
-                            d.render.target_id
-                    );
-                }
-            } else {
-                return this.Error(d, "no target or tag specified");
-            }
+            const html = d.render.html;
 
             if (d.render.inner) {
                 elem.innerHTML = html;
@@ -80,7 +61,7 @@ export class API {
             }
 
             d = this.utils.parseEventListeners(elem, d);
-            this.Dispatch(this.utils.addEventListeners(d));
+            this.utils.addEventListeners(d);
 
             return;
         },
@@ -97,35 +78,77 @@ export class API {
             return;
         },
         custom: (d: Dispatch) => {
-            const fn = (window as unknown as Record<string, (data: Object) => Object>)[d.custom.function];
+            const fn = (window as unknown as Record<string, (data: Object) => Object | undefined>)[d.custom.function];
+            if (typeof fn !== "function") {
+                return this.Error(d, "custom function not found: " + d.custom.function);
+            }
             d.custom.result = fn(d.custom.data);
             return d;
         },
     };
 
+    private findRenderTarget(d: Dispatch): Element | void {
+        if (d.render.tag != "") {
+            const elem = document.getElementsByTagName(d.render.tag)[0];
+            if (!elem) {
+                return this.Error(
+                    d,
+                    "element with tag not found: " + d.render.tag
+                );
+            }
+            return elem;
+        }
+
+        if (d.render.target_id != "") {
+            const elem = document.getElementById(d.render.target_id);
+            if (!elem) {
+                return this.Error(
+                    d,
+                    "element with target_id not found: " +
+                    d.render.target_id
+                );
+            }
+            return elem;
+        }
+
+        return this.Error(d, "no target or tag specified");
+    }
+
     private utils = {
         parseEventListeners: (element: Element, d: Dispatch): Dispatch => {
-            const events = this.utils.getAttributes(element, "events")
+            const events = this.utils.getAttributes(element, "events");
             const listeners = events.map((e) => {
                 const event = JSON.parse(e);
-                if (!event) return
+                if (!event) return;
                 return event as FnEventListener[];
             });
-            const listeners_flat = listeners.flat();
-            const listeners_filtered = listeners_flat.filter((e) => e != null);
-            d.render.event_listeners = listeners_filtered;
+            d.render.event_listeners = listeners.flat().filter((e) => e != null);
             return d;
         },
         // Element selectors
-        parseFormData: (ev: Event, d: Dispatch) => {
-            const form = ev.target as HTMLFormElement;
+        parseFormData: (ev: Event) => {
+            const form = this.utils.getFormFromEvent(ev);
+            if (!form) {
+                return ParseEventTarget(ev.target);
+            }
             const formData = new FormData(form);
-            d.event.data = Object.fromEntries(formData.entries());
-            return d;
+            return Object.fromEntries(formData.entries());
+        },
+        getFormFromEvent: (ev: Event): HTMLFormElement | null => {
+            const target = ev.target;
+            if (target instanceof HTMLFormElement) {
+                return target;
+            }
+            if (target instanceof Element) {
+                return target.closest("form");
+            }
+            return null;
         },
         getAttributes: (elem: Element, attribute: string): string[] => {
             const elems = elem.querySelectorAll(`[${attribute}]`);
-            return Array.from(elems).map((el) => el.getAttribute(attribute));
+            return Array.from(elems)
+                .map((el) => el.getAttribute(attribute))
+                .filter((value): value is string => value !== null);
         },
         addEventListeners: (d: Dispatch) => {
             if (!d.render.event_listeners) return;
@@ -141,28 +164,34 @@ export class API {
                 }
                 elem.addEventListener(listener.on, (ev) => {
                     ev.preventDefault();
-                    d.function = Fun.EVENT;
-                    d.event = listener;
-                        if (["submit", "change"].includes(listener.on)) {
-                            d = this.utils.parseFormData(ev, d);
-                        } else if (["pointerdown", "pointerup", "pointermove", "click", "contextmenu", "dblclick"].includes(listener.on)) {
-                            d.event.data = ParsePointerEvent(ev as PointerEvent);
-                        } else if (["drag", "dragend", "dragenter", "dragexitcapture", "dragleave", "dragover", "dragstart", "drop"].includes(listener.on)) {
-                            d.event.data = ParseDragEvent(ev as DragEvent);
-                        } else if (["mousedown", "mouseup", "mousemove"].includes(listener.on)) {
-                            d.event.data = ParseMouseEvent(ev as MouseEvent);
-                        } else if (["keydown", "keyup", "keypress"].includes(listener.on)) {
-                            d.event.data = ParseKeyboardEvent(ev as KeyboardEvent);
-                        } else if (["input", "invalid", "reset", "search", "select", "focus", "blur", "copy", "cut", "paste"].includes(listener.on)) {
-                            d.event.data = ParseEventTarget(ev.target);
-                        } else if (["touchstart", "touchend", "touchmove", "touchcancel"].includes(listener.on)) {
-                            d.event.data = ParseTouchEvent(ev as TouchEvent & { layerX: number; layerY: number; pageX: number; pageY: number });
-                        } else {
-                            d.event.data = ParseEventTarget(ev.target);
-                        }
-                    this.Dispatch(d);
+                    const eventDispatch = cloneDispatch(d);
+                    eventDispatch.function = Fun.EVENT;
+                    eventDispatch.event = { ...listener };
+                    eventDispatch.event.data = this.utils.parseEventData(listener.on, ev);
+                    this.Dispatch(eventDispatch);
                 });
             });
+        },
+        parseEventData: (eventName: string, ev: Event) => {
+            if (["submit", "change"].includes(eventName)) {
+                return this.utils.parseFormData(ev);
+            }
+            if (["pointerdown", "pointerup", "pointermove", "click", "contextmenu", "dblclick"].includes(eventName)) {
+                return ParsePointerEvent(ev as PointerEvent);
+            }
+            if (["drag", "dragend", "dragenter", "dragexitcapture", "dragleave", "dragover", "dragstart", "drop"].includes(eventName)) {
+                return ParseDragEvent(ev as DragEvent);
+            }
+            if (["mousedown", "mouseup", "mousemove"].includes(eventName)) {
+                return ParseMouseEvent(ev as MouseEvent);
+            }
+            if (["keydown", "keyup", "keypress"].includes(eventName)) {
+                return ParseKeyboardEvent(ev as KeyboardEvent);
+            }
+            if (["touchstart", "touchend", "touchmove", "touchcancel"].includes(eventName)) {
+                return ParseTouchEvent(ev as TouchEvent & { layerX: number; layerY: number; pageX: number; pageY: number });
+            }
+            return ParseEventTarget(ev.target);
         },
     };
 
@@ -173,7 +202,12 @@ export class API {
     };
 }
 
-function ParseEventTarget(ev: any)  {
+function cloneDispatch(d: Dispatch): Dispatch {
+    return JSON.parse(JSON.stringify(d)) as Dispatch;
+}
+
+function ParseEventTarget(ev: any) {
+    if (!ev) return null;
     return {
         id: ev.id || "",
         name: ev.name || "",
@@ -318,13 +352,6 @@ function ParseKeyboardEvent(ev: KeyboardEvent): KeyboardEventProperties {
         repeat: ev.repeat,
         shiftKey: ev.shiftKey,
     };
-}
-
-function ParseFormData(ev: SubmitEvent) {
-    const form = ev.target as HTMLFormElement;
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-    return data;
 }
 
 // Event types

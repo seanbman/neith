@@ -41,10 +41,11 @@ export class Socket {
             );
             localStorage.setItem("fcmp", key);
         }
+        this.key = key;
 
-        let protocol = "wss"
-        if (location.protocol !== 'https:') {
-            protocol = "ws"
+        let protocol = "wss";
+        if (location.protocol !== "https:") {
+            protocol = "ws";
         }
 
         this.addr = protocol + "://" + window.location.host + path_parsed + "?fcmp_id=" + this.key;
@@ -67,8 +68,8 @@ export class Socket {
         };
         this.ws.onclose = function () {
             setTimeout(() => {
-                if(typeof window !== 'undefined')
-                window.location.reload();
+                if (typeof window !== "undefined")
+                    window.location.reload();
             }, 1000);
         };
         this.ws.onerror = function () {};
