@@ -28,6 +28,19 @@ Then open:
 http://localhost:8080
 ```
 
+The example renders a small admin-style cache monitor. Fill out the form and
+submit it to add a row to the table. Use a row's `Delete` button to remove that
+record from the current cache value. Each add or delete stores a new value in the
+per-connection fcmp cache, records a cache history snapshot, and re-renders the
+table.
+
+Beneath the table, one terminal-style panel shows the full literal contents of
+the current `admin_updates` cache. A second terminal-style panel shows the
+history store. History is separate from the current cache value: the current
+cache is the latest `admin_updates` slice, while history is a timestamp-keyed
+set of older recorded versions created when `Record(true)` is enabled and
+`Set(...)` runs.
+
 The app follows the README quick-start shape:
 
 ```text
