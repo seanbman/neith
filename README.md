@@ -25,6 +25,7 @@ used as fcmp components.
 - Redirect the browser from a handler.
 - Run custom JavaScript functions from Go.
 - Read typed event payloads with `EventData[T]`.
+- Inspect uploaded files and form submitter metadata from handlers.
 - Store per-connection state with generic caches.
 - Configure logging and cache expiry.
 
@@ -155,6 +156,56 @@ For pointer, mouse, keyboard, drag, touch, input, change, submit, and other DOM 
 the browser client sends event data back to Go. Use `EventData[T]` with the matching
 type, such as `fcmp.PointerEvent`, `fcmp.DragEvent`, or your own form-data struct/map.
 
+Event targets include the element ID, name, classes, tag name, HTML, value, checked,
+disabled, hidden, inline style, attributes, dataset, and selected option values. For
+submit events, `EventSubmitter` returns the button or input that submitted the form.
+
+```go
+func save(ctx context.Context) fcmp.FnComponent {
+	values, err := fcmp.EventData[map[string]string](ctx)
+	if err != nil {
+		return fcmp.FnErr(ctx, err)
+	}
+
+	submitter, err := fcmp.EventSubmitter(ctx)
+	if err != nil {
+		return fcmp.FnErr(ctx, err)
+	}
+	if submitter != nil && submitter.Value == "delete" {
+		return fcmp.NewFn(ctx, fcmp.HTML("<p>Delete requested</p>"))
+	}
+
+	return fcmp.NewFn(ctx, fcmp.HTML("<p>Saved " + values["name"] + "</p>"))
+}
+```
+
+### File Uploads
+
+Forms with file inputs upload file bytes over HTTP before the websocket event is
+sent. Normal form values stay available through `EventData`, and uploaded file
+metadata is available with `EventUploads`.
+
+```go
+func upload(ctx context.Context) fcmp.FnComponent {
+	values, err := fcmp.EventData[map[string]string](ctx)
+	if err != nil {
+		return fcmp.FnErr(ctx, err)
+	}
+
+	uploads, err := fcmp.EventUploads(ctx)
+	if err != nil {
+		return fcmp.FnErr(ctx, err)
+	}
+
+	return fcmp.NewFn(ctx, fcmp.HTML(
+		"<p>Saved " + values["title"] + " with " + uploads[0].FileName + "</p>",
+	))
+}
+```
+
+Uploaded files are written to `Config.UploadDir`, or to the system temp
+directory under `fcmp-uploads` when no directory is configured.
+
 ## Server-Initiated Updates
 
 Handlers can dispatch extra effects while handling an event:
@@ -187,6 +238,21 @@ fcmp.RemoveElement(ctx, "modal")
 fcmp.RemoveTag(ctx, "dialog")
 return fcmp.RedirectURL(ctx, "/next")
 ```
+
+The browser client also exposes lifecycle hooks:
+
+```js
+window.fcmp.on("afterRender", ({ dispatch, element }) => {
+	console.log("rendered", dispatch.function, element)
+})
+
+window.fcmp.on("beforeEventDispatch", ({ dispatch, event }) => {
+	console.log("sending event", dispatch.event.on)
+})
+```
+
+The socket emits `connect`, `disconnect`, and `reconnect` hooks. Unexpected
+disconnects are retried with capped exponential backoff instead of reloading the page.
 
 ## Cache
 

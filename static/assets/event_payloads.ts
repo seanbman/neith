@@ -1,32 +1,46 @@
+import type { EventTargetData, Upload } from "./fcmp_types";
+import { formValues, uploadFormFiles } from "./uploads";
+
+export type ParsedEventData = {
+    data: Object | null;
+    uploads: Upload[];
+    submitter?: ReturnType<typeof parseEventTarget>;
+};
+
 export function parseEventData(eventName: string, ev: Event) {
     if (["submit", "change"].includes(eventName)) {
         return parseFormData(ev);
     }
     if (["pointerdown", "pointerup", "pointermove", "click", "contextmenu", "dblclick"].includes(eventName)) {
-        return parsePointerEvent(ev as PointerEvent);
+        return withoutUploads(parsePointerEvent(ev as PointerEvent));
     }
     if (["drag", "dragend", "dragenter", "dragexitcapture", "dragleave", "dragover", "dragstart", "drop"].includes(eventName)) {
-        return parseDragEvent(ev as DragEvent);
+        return withoutUploads(parseDragEvent(ev as DragEvent));
     }
     if (["mousedown", "mouseup", "mousemove"].includes(eventName)) {
-        return parseMouseEvent(ev as MouseEvent);
+        return withoutUploads(parseMouseEvent(ev as MouseEvent));
     }
     if (["keydown", "keyup", "keypress"].includes(eventName)) {
-        return parseKeyboardEvent(ev as KeyboardEvent);
+        return withoutUploads(parseKeyboardEvent(ev as KeyboardEvent));
     }
     if (["touchstart", "touchend", "touchmove", "touchcancel"].includes(eventName)) {
-        return parseTouchEvent(ev as TouchEvent & { layerX: number; layerY: number; pageX: number; pageY: number });
+        return withoutUploads(parseTouchEvent(ev as TouchEvent & { layerX: number; layerY: number; pageX: number; pageY: number }));
     }
-    return parseEventTarget(ev.target);
+    return withoutUploads(parseEventTarget(ev.target));
 }
 
-function parseFormData(ev: Event) {
+async function parseFormData(ev: Event): Promise<ParsedEventData> {
     const form = getFormFromEvent(ev);
     if (!form) {
-        return parseEventTarget(ev.target);
+        return withoutUploads(parseEventTarget(ev.target));
     }
-    const formData = new FormData(form);
-    return Object.fromEntries(formData.entries());
+    const submitter = getSubmitterElement(ev);
+    const uploads = await uploadFormFiles(form);
+    return {
+        data: formValues(form, submitter),
+        uploads,
+        submitter: parseEventTarget(submitter),
+    };
 }
 
 function getFormFromEvent(ev: Event): HTMLFormElement | null {
@@ -46,16 +60,35 @@ function isFormElement(target: EventTarget | null): target is HTMLFormElement {
         (target as HTMLFormElement).tagName === "FORM";
 }
 
-export function parseEventTarget(ev: any) {
+export function parseEventTarget(ev: any): EventTargetData | null {
     if (!ev) return null;
     return {
         id: ev.id || "",
         name: ev.name || "",
+        classList: ev.classList ? Array.from(ev.classList).map(String) : [],
         tagName: ev.tagName || "",
         innerHTML: ev.innerHTML || "",
         outerHTML: ev.outerHTML || "",
         value: ev.value || "",
-    } as Partial<EventTarget>;
+        checked: !!ev.checked,
+        disabled: !!ev.disabled,
+        hidden: !!ev.hidden,
+        style: ev.getAttribute ? ev.getAttribute("style") || "" : "",
+        attributes: ev.attributes ? Array.from(ev.attributes).map((attr: Attr) => `${attr.name}=${attr.value}`) : [],
+        dataset: ev.dataset ? Object.entries(ev.dataset).map(([key, value]) => `${key}=${value || ""}`) : [],
+        selectedOptions: ev.selectedOptions ? Array.from(ev.selectedOptions).map((option: HTMLOptionElement) => option.value) : [],
+    };
+}
+
+function withoutUploads(data: Object | null): ParsedEventData {
+    return {
+        data,
+        uploads: [],
+    };
+}
+
+function getSubmitterElement(ev: Event) {
+    return (ev as SubmitEvent).submitter || null;
 }
 
 function parsePointerEvent(ev: PointerEvent): PointerEventProperties {
@@ -205,7 +238,7 @@ type PointerEventProperties = {
     clientY: number;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: Partial<EventTarget> | null;
+    currentTarget: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;
@@ -221,7 +254,7 @@ type PointerEventProperties = {
     pointerId: number;
     pointerType: string;
     pressure: number;
-    relatedTarget: Partial<EventTarget> | null;
+    relatedTarget: EventTargetData | null;
 };
 
 type TouchEventProperties = {
@@ -245,7 +278,7 @@ type TouchProperties = {
     rotationAngle: number;
     screenX: number;
     screenY: number;
-    target: Partial<EventTarget> | null;
+    target: EventTargetData | null;
 };
 
 type DragEventProperties = {
@@ -259,7 +292,7 @@ type DragEventProperties = {
     clientY: number;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: Partial<EventTarget> | null;
+    currentTarget: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;
@@ -270,7 +303,7 @@ type DragEventProperties = {
     offsetY: number;
     pageX: number;
     pageY: number;
-    relatedTarget: Partial<EventTarget> | null;
+    relatedTarget: EventTargetData | null;
 };
 
 type MouseEventProperties = {
@@ -284,7 +317,7 @@ type MouseEventProperties = {
     clientY: number;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: Partial<EventTarget> | null;
+    currentTarget: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;
@@ -295,7 +328,7 @@ type MouseEventProperties = {
     offsetY: number;
     pageX: number;
     pageY: number;
-    relatedTarget: Partial<EventTarget> | null;
+    relatedTarget: EventTargetData | null;
 };
 
 type KeyboardEventProperties = {
@@ -306,7 +339,7 @@ type KeyboardEventProperties = {
     code: string;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: Partial<EventTarget> | null;
+    currentTarget: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;

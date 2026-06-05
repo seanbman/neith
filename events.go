@@ -97,11 +97,13 @@ const (
 
 type EventListener struct {
 	context.Context `json:"-"`
-	ID              string   `json:"id"`
-	TargetID        string   `json:"target_id"`
-	Handler         HandleFn `json:"-"`
-	On              OnEvent  `json:"on"`
-	Data            any      `json:"data"`
+	ID              string       `json:"id"`
+	TargetID        string       `json:"target_id"`
+	Handler         HandleFn     `json:"-"`
+	On              OnEvent      `json:"on"`
+	Data            any          `json:"data"`
+	Uploads         []Upload     `json:"uploads,omitempty"`
+	Submitter       *EventTarget `json:"submitter,omitempty"`
 }
 
 func newEventListener(on OnEvent, f FnComponent, h HandleFn) EventListener {
@@ -167,20 +169,57 @@ func EventData[T any](ctx context.Context) (T, error) {
 	return t, err
 }
 
+// EventUploads returns file metadata uploaded before the current event dispatch.
+//
+// File bytes are posted to fcmp's upload endpoint over HTTP. EventData still
+// contains normal form values, and EventUploads exposes the uploaded files.
+func EventUploads(ctx context.Context) ([]Upload, error) {
+	e, ok := ctx.Value(EventKey).(EventListener)
+	if !ok {
+		return nil, ErrCtxMissingEvent
+	}
+	return append([]Upload(nil), e.Uploads...), nil
+}
+
+// EventSubmitter returns the button or input that submitted a form event.
+func EventSubmitter(ctx context.Context) (*EventTarget, error) {
+	e, ok := ctx.Value(EventKey).(EventListener)
+	if !ok {
+		return nil, ErrCtxMissingEvent
+	}
+	if e.Submitter == nil {
+		return nil, nil
+	}
+	submitter := *e.Submitter
+	return &submitter, nil
+}
+
+// Upload describes one file uploaded for an event.
+type Upload struct {
+	ID          string `json:"id"`
+	FieldName   string `json:"field_name"`
+	FileName    string `json:"file_name"`
+	ContentType string `json:"content_type"`
+	Size        int64  `json:"size"`
+	Path        string `json:"path"`
+}
+
 // Event data types
 type EventTarget struct {
-	ID         string   `json:"id"`
-	ClassList  []string `json:"classList"`
-	TagName    string   `json:"tagName"`
-	InnerHTML  string   `json:"innerHTML"`
-	OuterHTML  string   `json:"outerHTML"`
-	Value      string   `json:"value"`
-	Checked    bool     `json:"checked"`
-	Disabled   bool     `json:"disabled"`
-	Hidden     bool     `json:"hidden"`
-	Style      string   `json:"style"`
-	Attributes []string `json:"attributes"`
-	Dataset    []string `json:"dataset"`
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	ClassList       []string `json:"classList"`
+	TagName         string   `json:"tagName"`
+	InnerHTML       string   `json:"innerHTML"`
+	OuterHTML       string   `json:"outerHTML"`
+	Value           string   `json:"value"`
+	Checked         bool     `json:"checked"`
+	Disabled        bool     `json:"disabled"`
+	Hidden          bool     `json:"hidden"`
+	Style           string   `json:"style"`
+	Attributes      []string `json:"attributes"`
+	Dataset         []string `json:"dataset"`
+	SelectedOptions []string `json:"selectedOptions"`
 }
 
 type PointerEvent struct {

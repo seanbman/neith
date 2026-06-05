@@ -31,17 +31,23 @@ const (
 
 func init() {
 	config = &Config{
-		CacheTimeOut: time.Minute * 30,
-		LogLevel:     Error,
-		Logger:       log.NewWithOptions(os.Stderr, logOpts),
+		CacheTimeOut:    time.Minute * 30,
+		LogLevel:        Error,
+		Logger:          log.NewWithOptions(os.Stderr, logOpts),
+		UploadDir:       "",
+		UploadMaxBytes:  64 << 20,
+		UploadMaxMemory: 32 << 20,
 	}
 }
 
 type Config struct {
-	Silent       bool          // If true, no logs will be printed
-	CacheTimeOut time.Duration // Default cache timeout
-	LogLevel     LogLevel
-	Logger       *log.Logger
+	Silent          bool          // If true, no logs will be printed
+	CacheTimeOut    time.Duration // Default cache timeout
+	LogLevel        LogLevel
+	Logger          *log.Logger
+	UploadDir       string // Directory for multipart event uploads; defaults to os.TempDir()/fcmp-uploads
+	UploadMaxBytes  int64  // Maximum request size for one upload request
+	UploadMaxMemory int64  // Maximum multipart memory before files spill to disk
 }
 
 func SetConfig(c *Config) {

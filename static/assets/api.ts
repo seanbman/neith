@@ -1,6 +1,7 @@
 import { addEventListeners, parseEventListeners } from "./events";
 import type { Dispatch, DispatchFunctions } from "./fcmp_types";
 import { Fun } from "./fcmp_types";
+import { emitHook } from "./hooks";
 import { applyClass, applyCustom, applyDOM, applyRender } from "./render";
 
 export class API {
@@ -38,6 +39,7 @@ export class API {
     private Error = (d: Dispatch, message: string) => {
         d.function = Fun.ERROR;
         d.error = { message };
+        emitHook("error", { dispatch: d, error: message });
         this.Dispatch(d);
     };
 
@@ -47,11 +49,13 @@ export class API {
             return d;
         },
         render: (d: Dispatch) => {
+            emitHook("beforeRender", { dispatch: d });
             const elem = applyRender(d, this.Error);
             if (!elem) return;
 
             const dispatch = parseEventListeners(elem, d);
             addEventListeners(dispatch, this.Dispatch, this.Error);
+            emitHook("afterRender", { dispatch, element: elem });
             return;
         },
         class: (d: Dispatch) => {

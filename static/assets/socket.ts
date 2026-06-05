@@ -1,12 +1,17 @@
 import { API } from "./api";
 import { Dispatch } from "./fcmp_types";
-var did_connect = false;
-let api: API;
+import { emitHook } from "./hooks";
 
 export class Socket {
     private ws: WebSocket | null = null;
     private addr: string | undefined = undefined;
     private key: string | undefined = undefined;
+    private api: API | null = null;
+    private didConnect = false;
+    private reconnectAttempts = 0;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private readonly baseReconnectDelay = 500;
+    private readonly maxReconnectDelay = 30000;
 
     constructor(addr?: string) {
         if (addr) {
@@ -58,25 +63,55 @@ export class Socket {
             throw new Error("ws: failed to connect to fcmp server: " + err);
         }
         try {
-            api = new API(this.ws);
+            this.api = new API(this.ws);
         } catch (err) {
             throw new Error("ws: failed to initiate API: " + err);
         }
 
-        this.ws.onopen = function () {
-            did_connect = true;
+        this.ws.onopen = () => {
+            this.clearReconnectTimer();
+            this.reconnectAttempts = 0;
+            emitHook(this.didConnect ? "reconnect" : "connect");
+            this.didConnect = true;
         };
-        this.ws.onclose = function () {
-            setTimeout(() => {
-                if (typeof window !== "undefined")
-                    window.location.reload();
-            }, 1000);
+        this.ws.onclose = (event) => {
+            emitHook("disconnect");
+            if (this.shouldReconnect(event)) {
+                this.scheduleReconnect();
+            }
         };
-        this.ws.onerror = function () {};
+        this.ws.onerror = () => {};
 
-        this.ws.onmessage = function (event) {
+        this.ws.onmessage = (event) => {
             let d = JSON.parse(event.data) as Dispatch;
-            api.Process(d);
+            this.api?.Process(d);
         };
+    }
+
+    private shouldReconnect(event: CloseEvent): boolean {
+        return typeof window !== "undefined" &&
+            !event.wasClean &&
+            event.code !== 1000 &&
+            event.code !== 1001;
+    }
+
+    private scheduleReconnect() {
+        if (this.reconnectTimer) return;
+
+        const delay = Math.min(
+            this.baseReconnectDelay * 2 ** this.reconnectAttempts,
+            this.maxReconnectDelay
+        );
+        this.reconnectAttempts++;
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            this.connect();
+        }, delay);
+    }
+
+    private clearReconnectTimer() {
+        if (!this.reconnectTimer) return;
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
     }
 }

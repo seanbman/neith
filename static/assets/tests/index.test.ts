@@ -7,9 +7,11 @@ import {
     afterAll,
     expect,
     beforeEach,
+    jest,
 } from "@jest/globals";
 import { JSDOM } from "jsdom";
 import { Dispatch, Fun } from "../fcmp_types";
+import { onHook } from "../hooks";
 
 describe("test websocket functions", () => {
     let dispatches: Dispatch[] = [];
@@ -175,6 +177,189 @@ describe("test websocket functions", () => {
         expect(dispatches[0].event.target_id).toEqual(event.target_id);
     });
 
+    test("test rich event target metadata", async () => {
+        const event = {
+            id: "rich-event",
+            target_id: "rich-target",
+            on: "click",
+            action: "test",
+            method: "GET",
+            form_data: "",
+            data: {},
+        };
+        server.send({
+            function: Fun.RENDER,
+            render: {
+                tag: "main",
+                html: `<div id="${event.target_id}" events=[${JSON.stringify(event)}]>
+                    <button id="rich-button" name="status" class="primary important" data-role="admin" style="color: red" value="open">Open</button>
+                </div>`,
+                append: true,
+            },
+        });
+
+        await waitCallback(() => document.getElementById("rich-button") !== null);
+        const click = new document.defaultView!.MouseEvent("click", { bubbles: true, cancelable: true });
+        document.getElementById("rich-button")?.dispatchEvent(click);
+        await waitCallback(() => dispatches.length > 0);
+
+        const currentTarget = (dispatches[0].event.data as any).currentTarget;
+        expect(currentTarget.id).toEqual("rich-button");
+        expect(currentTarget.name).toEqual("status");
+        expect(currentTarget.classList).toEqual(["primary", "important"]);
+        expect(currentTarget.dataset).toEqual(["role=admin"]);
+        expect(currentTarget.disabled).toEqual(false);
+        expect(currentTarget.attributes).toContain("value=open");
+    });
+
+    test("test form submitter metadata", async () => {
+        const event = {
+            id: "submitter-event",
+            target_id: "submitter-target",
+            on: "submit",
+            action: "test",
+            method: "POST",
+            form_data: "",
+            data: {},
+        };
+        server.send({
+            function: Fun.RENDER,
+            render: {
+                tag: "main",
+                html: `<div id="${event.target_id}" events=[${JSON.stringify(event)}]><form>
+                    <input name="title" value="Invoice">
+                    <button id="save" name="intent" value="save" data-action="save">Save</button>
+                    <button id="delete" name="intent" value="delete">Delete</button>
+                </form></div>`,
+                append: true,
+            },
+        });
+
+        await waitCallback(() => document.getElementById("save") !== null);
+        const form = document.querySelector("form") as HTMLFormElement;
+        const saveButton = document.getElementById("save") as HTMLButtonElement;
+        const SubmitEventCtor = (document.defaultView as any).SubmitEvent;
+        const submit = SubmitEventCtor
+            ? new SubmitEventCtor("submit", { bubbles: true, cancelable: true, submitter: saveButton })
+            : new document.defaultView!.Event("submit", { bubbles: true, cancelable: true });
+        if (!("submitter" in submit)) {
+            Object.defineProperty(submit, "submitter", { value: saveButton });
+        }
+
+        form.dispatchEvent(submit);
+        await waitCallback(() => dispatches.length > 0);
+
+        expect(dispatches[0].event.data).toEqual({ title: "Invoice", intent: "save" });
+        expect(dispatches[0].event.submitter?.id).toEqual("save");
+        expect(dispatches[0].event.submitter?.name).toEqual("intent");
+        expect(dispatches[0].event.submitter?.value).toEqual("save");
+        expect(dispatches[0].event.submitter?.dataset).toEqual(["action=save"]);
+    });
+
+    test("test lifecycle hooks", async () => {
+        const seen: string[] = [];
+        const offBeforeRender = onHook("beforeRender", () => seen.push("beforeRender"));
+        const offAfterRender = onHook("afterRender", () => seen.push("afterRender"));
+        const offBeforeEvent = onHook("beforeEventDispatch", () => seen.push("beforeEventDispatch"));
+        const offAfterEvent = onHook("afterEventDispatch", () => seen.push("afterEventDispatch"));
+
+        const event = {
+            id: "hook-event",
+            target_id: "hook-target",
+            on: "click",
+            action: "test",
+            method: "GET",
+            form_data: "",
+            data: {},
+        };
+        server.send({
+            function: Fun.RENDER,
+            render: {
+                tag: "main",
+                html: `<div id="${event.target_id}" events=[${JSON.stringify(event)}]><button>Hook</button></div>`,
+                append: true,
+            },
+        });
+
+        await waitCallback(() => seen.includes("afterRender"));
+        const mouseEvent = new document.defaultView!.MouseEvent("click", { bubbles: true, cancelable: true });
+        document.querySelector("button")?.dispatchEvent(mouseEvent);
+        await waitCallback(() => seen.includes("afterEventDispatch"));
+
+        expect(seen).toEqual([
+            "beforeRender",
+            "afterRender",
+            "beforeEventDispatch",
+            "afterEventDispatch",
+        ]);
+
+        offBeforeRender();
+        offAfterRender();
+        offBeforeEvent();
+        offAfterEvent();
+    });
+
+    test("test file upload event metadata", async () => {
+        const jsdom = new JSDOM(
+            "<!DOCTYPE html><html><body><main></main></body></html>",
+            { url: "http://localhost/upload-test" }
+        );
+        global.document = jsdom.window.document;
+        (global as any).window = jsdom.window;
+        (global as any).localStorage = jsdom.window.localStorage;
+        (global as any).FormData = jsdom.window.FormData;
+        localStorage.setItem("fcmp", "upload-key");
+
+        const uploadedFile = {
+            id: "upload-1",
+            field_name: "avatar",
+            file_name: "hello.txt",
+            content_type: "text/plain",
+            size: 5,
+            path: "/tmp/fcmp/hello.txt",
+        };
+        (global as any).fetch = jest.fn(async () => ({
+            ok: true,
+            json: async () => ({ files: [uploadedFile] }),
+        }));
+
+        const event = {
+            id: "upload-event",
+            target_id: "upload-target",
+            on: "submit",
+            action: "test",
+            method: "POST",
+            form_data: "",
+            data: {},
+        };
+        server.send({
+            function: Fun.RENDER,
+            render: {
+                tag: "main",
+                html: `<div id="${event.target_id}" events=[${JSON.stringify(event)}]><form>
+                        <input name="title" value="Profile">
+                        <input id="avatar" type="file" name="avatar">
+                        <button>Save</button>
+                    </form></div>`,
+                append: true,
+            },
+        });
+
+        await waitCallback(() => document.querySelector("form") !== null);
+        const input = document.getElementById("avatar") as HTMLInputElement;
+        const file = new jsdom.window.File(["hello"], "hello.txt", { type: "text/plain" });
+        Object.defineProperty(input, "files", {
+            value: [file],
+        });
+
+        document.querySelector("form")?.dispatchEvent(new jsdom.window.Event("submit", { bubbles: true, cancelable: true }));
+        await waitCallback(() => dispatches.length > 0);
+
+        expect((global as any).fetch).toHaveBeenCalledTimes(1);
+        expect(dispatches[0].event.data).toEqual({ title: "Profile" });
+        expect(dispatches[0].event.uploads).toEqual([uploadedFile]);
+    });
+
     test("test error", async () => {
         const dispatch = {
             function: Fun.RENDER,
@@ -298,6 +483,10 @@ describe("test websocket functions", () => {
     });
 
     afterAll(() => {
+        delete (global as any).window;
+        delete (global as any).localStorage;
+        delete (global as any).FormData;
+        delete (global as any).fetch;
         WS.clean();
     });
 });

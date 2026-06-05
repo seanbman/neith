@@ -196,6 +196,8 @@ func (h handler) Event(d Dispatch) {
 		return
 	}
 	listener.Data = d.FnEvent.Data
+	listener.Uploads = d.FnEvent.Uploads
+	listener.Submitter = d.FnEvent.Submitter
 
 	ctx := context.WithValue(listener.Context, EventKey, listener)
 	response := listener.Handler(ctx)
@@ -227,6 +229,10 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("fcmp_id")
+		if r.URL.Query().Get("fcmp_upload") == "1" {
+			handler.Upload(w, r)
+			return
+		}
 		if id == "" {
 			writer := Writer{ResponseWriter: w}
 			h(&writer, r)

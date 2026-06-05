@@ -28,6 +28,34 @@ type FnEventListener = {
     method: string;
     form_data: string;
     data: Object;
+    uploads?: Upload[];
+    submitter?: EventTargetData | null;
+};
+
+type EventTargetData = {
+    id: string;
+    name: string;
+    classList: string[];
+    tagName: string;
+    innerHTML: string;
+    outerHTML: string;
+    value: string;
+    checked: boolean;
+    disabled: boolean;
+    hidden: boolean;
+    style: string;
+    attributes: string[];
+    dataset: string[];
+    selectedOptions: string[];
+};
+
+type Upload = {
+    id: string;
+    field_name: string;
+    file_name: string;
+    content_type: string;
+    size: number;
+    path: string;
 };
 
 type FnPing = {
@@ -104,5 +132,7 @@ export {
     FnRedirect,
     FnError,
     FnEventListener,
+    EventTargetData,
+    Upload,
     Dispatch,
 };
