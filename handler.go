@@ -92,6 +92,8 @@ func (h *handler) listen() {
 				go h.Render(fn)
 			case class:
 				go h.Class(fn)
+			case dom:
+				go h.DOM(fn)
 			case redirect:
 				go h.Redirect(fn)
 			case custom:
@@ -135,6 +137,13 @@ func (h handler) Render(fn FnComponent) {
 func (h handler) Class(fn FnComponent) {
 	// If there is no class to add, cancel dispatch
 	if len(fn.dispatch.FnClass.Names) == 0 {
+		return
+	}
+	h.MarshalAndPublish(*fn.dispatch)
+}
+
+func (h handler) DOM(fn FnComponent) {
+	if fn.dispatch.FnDOM.TargetID == "" || fn.dispatch.FnDOM.Operation == "" {
 		return
 	}
 	h.MarshalAndPublish(*fn.dispatch)

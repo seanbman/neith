@@ -189,6 +189,114 @@ describe("test websocket functions", () => {
         expect(dispatches[0].error.message).toBeDefined();
     });
 
+    test("test dom operations", async () => {
+        document.body.innerHTML = `
+            <main>
+                <input id="field" value="old">
+                <button id="button">Button</button>
+                <p id="label">Old text</p>
+            </main>
+        `;
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "field",
+                operation: "setAttribute",
+                name: "aria-label",
+                value: "Name",
+            },
+        });
+        await waitCallback(() => document.getElementById("field")?.getAttribute("aria-label") === "Name");
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "field",
+                operation: "removeAttribute",
+                name: "aria-label",
+            },
+        });
+        await waitCallback(() => !document.getElementById("field")?.hasAttribute("aria-label"));
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "label",
+                operation: "setStyle",
+                name: "color",
+                value: "red",
+            },
+        });
+        await waitCallback(() => (document.getElementById("label") as HTMLElement).style.color === "red");
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "label",
+                operation: "removeStyle",
+                name: "color",
+            },
+        });
+        await waitCallback(() => (document.getElementById("label") as HTMLElement).style.color === "");
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "label",
+                operation: "setText",
+                value: "New text",
+            },
+        });
+        await waitCallback(() => document.getElementById("label")?.textContent === "New text");
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "field",
+                operation: "setValue",
+                value: "new",
+            },
+        });
+        await waitCallback(() => (document.getElementById("field") as HTMLInputElement).value === "new");
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "field",
+                operation: "focus",
+            },
+        });
+        await waitCallback(() => document.activeElement?.id === "field");
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "field",
+                operation: "blur",
+            },
+        });
+        await waitCallback(() => document.activeElement?.id !== "field");
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "button",
+                operation: "disable",
+            },
+        });
+        await waitCallback(() => (document.getElementById("button") as HTMLButtonElement).disabled);
+
+        server.send({
+            function: Fun.DOM,
+            dom: {
+                target_id: "button",
+                operation: "enable",
+            },
+        });
+        await waitCallback(() => !(document.getElementById("button") as HTMLButtonElement).disabled);
+    });
+
     afterAll(() => {
         WS.clean();
     });

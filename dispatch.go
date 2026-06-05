@@ -10,6 +10,7 @@ const (
 	ping     functionName = "ping"
 	render   functionName = "render"
 	class    functionName = "class"
+	dom      functionName = "dom"
 	redirect functionName = "redirect"
 	event    functionName = "event"
 	custom   functionName = "custom"
@@ -39,6 +40,13 @@ type (
 		TargetID string   `json:"target_id"`
 		Remove   bool     `json:"remove"`
 		Names    []string `json:"names"`
+	}
+	// FnDOM is used internally for focused DOM mutations and effects.
+	FnDOM struct {
+		TargetID  string `json:"target_id"`
+		Operation string `json:"operation"`
+		Name      string `json:"name,omitempty"`
+		Value     string `json:"value,omitempty"`
 	}
 	// FnRedirect is used internally to redirect the client to a new URL.
 	FnRedirect struct {
@@ -83,6 +91,7 @@ type Dispatch struct {
 	FnPing     FnPing        `json:"ping"`
 	FnRender   FnRender      `json:"render"`
 	FnClass    FnClass       `json:"class"`
+	FnDOM      FnDOM         `json:"dom"`
 	FnRedirect FnRedirect    `json:"redirect"`
 	FnCustom   FnCustom      `json:"custom"`
 	FnError    FnError       `json:"error"`

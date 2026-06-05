@@ -1,7 +1,7 @@
 import { addEventListeners, parseEventListeners } from "./events";
 import type { Dispatch, DispatchFunctions } from "./fcmp_types";
 import { Fun } from "./fcmp_types";
-import { applyClass, applyCustom, applyRender } from "./render";
+import { applyClass, applyCustom, applyDOM, applyRender } from "./render";
 
 export class API {
     private ws: WebSocket | null = null;
@@ -56,6 +56,9 @@ export class API {
         },
         class: (d: Dispatch) => {
             return applyClass(d, this.Error);
+        },
+        dom: (d: Dispatch) => {
+            return applyDOM(d, this.Error);
         },
         custom: (d: Dispatch) => {
             return applyCustom(d, this.Error);

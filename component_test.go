@@ -91,6 +91,26 @@ func TestFnComponentClassMutations(t *testing.T) {
 	}
 }
 
+func TestFnComponentDOMMutations(t *testing.T) {
+	fn := NewFn(context.Background(), nil).setDOM("email", "setAttribute", "aria-label", "Email")
+
+	if fn.dispatch.Function != dom {
+		t.Fatalf("expected dom function, got %q", fn.dispatch.Function)
+	}
+	if fn.dispatch.FnDOM.TargetID != "email" {
+		t.Fatalf("expected target id email, got %q", fn.dispatch.FnDOM.TargetID)
+	}
+	if fn.dispatch.FnDOM.Operation != "setAttribute" {
+		t.Fatalf("expected setAttribute operation, got %q", fn.dispatch.FnDOM.Operation)
+	}
+	if fn.dispatch.FnDOM.Name != "aria-label" {
+		t.Fatalf("expected aria-label name, got %q", fn.dispatch.FnDOM.Name)
+	}
+	if fn.dispatch.FnDOM.Value != "Email" {
+		t.Fatalf("expected Email value, got %q", fn.dispatch.FnDOM.Value)
+	}
+}
+
 func assertRenderMode(t *testing.T, render FnRender, mode renderMode) {
 	t.Helper()
 

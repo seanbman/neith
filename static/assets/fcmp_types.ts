@@ -8,6 +8,7 @@ enum Fun {
     PING = "ping",
     RENDER = "render",
     CLASS = "class",
+    DOM = "dom",
     CUSTOM = "custom",
     REDIRECT = "redirect",
     EVENT = "event",
@@ -52,6 +53,13 @@ type FnClass = {
     names: string[];
 };
 
+type FnDOM = {
+    target_id: string;
+    operation: string;
+    name: string;
+    value: string;
+};
+
 type FnCustom = {
     function: string;
     data: Object;
@@ -78,6 +86,7 @@ type Dispatch = {
     ping: FnPing;
     render: FnRender;
     class: FnClass;
+    dom: FnDOM;
     redirect: FnRedirect;
     custom: FnCustom;
     error: FnError;
@@ -90,6 +99,7 @@ export {
     FnPing,
     FnRender,
     FnClass,
+    FnDOM,
     FnCustom,
     FnRedirect,
     FnError,

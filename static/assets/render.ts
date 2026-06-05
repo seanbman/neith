@@ -40,6 +40,51 @@ export function applyClass(d: Dispatch, reportError: ErrorReporter) {
     return;
 }
 
+export function applyDOM(d: Dispatch, reportError: ErrorReporter) {
+    const elem = document.getElementById(d.dom.target_id);
+    if (!elem) {
+        return reportError(d, "element not found");
+    }
+
+    switch (d.dom.operation) {
+        case "setAttribute":
+            elem.setAttribute(d.dom.name, d.dom.value);
+            return;
+        case "removeAttribute":
+            elem.removeAttribute(d.dom.name);
+            return;
+        case "setStyle":
+            elem.style.setProperty(d.dom.name, d.dom.value);
+            return;
+        case "removeStyle":
+            elem.style.removeProperty(d.dom.name);
+            return;
+        case "setText":
+            elem.textContent = d.dom.value;
+            return;
+        case "setValue":
+            setElementValue(elem, d.dom.value);
+            return;
+        case "focus":
+            focusElement(elem);
+            return;
+        case "blur":
+            blurElement(elem);
+            return;
+        case "scrollIntoView":
+            scrollElementIntoView(elem);
+            return;
+        case "disable":
+            setElementDisabled(elem, true);
+            return;
+        case "enable":
+            setElementDisabled(elem, false);
+            return;
+        default:
+            return reportError(d, "dom operation not found: " + d.dom.operation);
+    }
+}
+
 export function applyCustom(d: Dispatch, reportError: ErrorReporter): Dispatch | void {
     const fn = (window as unknown as Record<string, (data: Object) => Object | undefined>)[d.custom.function];
     if (typeof fn !== "function") {
@@ -74,4 +119,34 @@ function findRenderTarget(d: Dispatch, reportError: ErrorReporter): Element | vo
     }
 
     return reportError(d, "no target or tag specified");
+}
+
+function setElementValue(elem: Element, value: string) {
+    if ("value" in elem) {
+        (elem as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = value;
+    }
+}
+
+function focusElement(elem: Element) {
+    if ("focus" in elem && typeof elem.focus === "function") {
+        (elem as HTMLElement).focus();
+    }
+}
+
+function blurElement(elem: Element) {
+    if ("blur" in elem && typeof elem.blur === "function") {
+        (elem as HTMLElement).blur();
+    }
+}
+
+function scrollElementIntoView(elem: Element) {
+    if ("scrollIntoView" in elem && typeof elem.scrollIntoView === "function") {
+        elem.scrollIntoView();
+    }
+}
+
+function setElementDisabled(elem: Element, disabled: boolean) {
+    if ("disabled" in elem) {
+        (elem as HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).disabled = disabled;
+    }
 }

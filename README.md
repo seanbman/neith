@@ -172,6 +172,17 @@ func clicked(ctx context.Context) fcmp.FnComponent {
 Other helpers:
 
 ```go
+fcmp.SetAttribute(ctx, "save", "aria-busy", "true")
+fcmp.RemoveAttribute(ctx, "save", "aria-busy")
+fcmp.SetStyle(ctx, "status", "color", "green")
+fcmp.RemoveStyle(ctx, "status", "color")
+fcmp.SetText(ctx, "status", "Saved")
+fcmp.SetValue(ctx, "search", "")
+fcmp.Focus(ctx, "search")
+fcmp.Blur(ctx, "search")
+fcmp.ScrollIntoView(ctx, "results")
+fcmp.Disable(ctx, "save")
+fcmp.Enable(ctx, "save")
 fcmp.RemoveElement(ctx, "modal")
 fcmp.RemoveTag(ctx, "dialog")
 return fcmp.RedirectURL(ctx, "/next")

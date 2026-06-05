@@ -254,6 +254,19 @@ func (f FnComponent) setClasses(id string, remove bool, classes ...string) FnCom
 	return f
 }
 
+// setDOM configures this component as a focused DOM operation.
+//
+// These operations are for small element changes that do not need an HTML
+// render, such as setting one attribute, focusing an input, or updating a value.
+func (f FnComponent) setDOM(id string, operation string, name string, value string) FnComponent {
+	f.dispatch.Function = dom
+	f.dispatch.FnDOM.TargetID = id
+	f.dispatch.FnDOM.Operation = operation
+	f.dispatch.FnDOM.Name = name
+	f.dispatch.FnDOM.Value = value
+	return f
+}
+
 // AppendTag appends the rendered component to the first matching tag in the DOM.
 //
 // The browser client finds document.getElementsByTagName(tag)[0] and appends the
@@ -376,6 +389,61 @@ func AddClasses(ctx context.Context, id string, classes ...string) {
 // the browser client.
 func RemoveClasses(ctx context.Context, id string, classes ...string) {
 	NewFn(ctx, nil).setClasses(id, true, classes...).Dispatch()
+}
+
+// SetAttribute immediately sets one attribute on an element by ID.
+func SetAttribute(ctx context.Context, id string, name string, value string) {
+	NewFn(ctx, nil).setDOM(id, "setAttribute", name, value).Dispatch()
+}
+
+// RemoveAttribute immediately removes one attribute from an element by ID.
+func RemoveAttribute(ctx context.Context, id string, name string) {
+	NewFn(ctx, nil).setDOM(id, "removeAttribute", name, "").Dispatch()
+}
+
+// SetStyle immediately sets one inline style property on an element by ID.
+func SetStyle(ctx context.Context, id string, name string, value string) {
+	NewFn(ctx, nil).setDOM(id, "setStyle", name, value).Dispatch()
+}
+
+// RemoveStyle immediately removes one inline style property from an element by ID.
+func RemoveStyle(ctx context.Context, id string, name string) {
+	NewFn(ctx, nil).setDOM(id, "removeStyle", name, "").Dispatch()
+}
+
+// SetText immediately replaces an element's textContent by ID.
+func SetText(ctx context.Context, id string, value string) {
+	NewFn(ctx, nil).setDOM(id, "setText", "", value).Dispatch()
+}
+
+// SetValue immediately sets the value property on a form control by ID.
+func SetValue(ctx context.Context, id string, value string) {
+	NewFn(ctx, nil).setDOM(id, "setValue", "", value).Dispatch()
+}
+
+// Focus immediately calls focus() on an element by ID.
+func Focus(ctx context.Context, id string) {
+	NewFn(ctx, nil).setDOM(id, "focus", "", "").Dispatch()
+}
+
+// Blur immediately calls blur() on an element by ID.
+func Blur(ctx context.Context, id string) {
+	NewFn(ctx, nil).setDOM(id, "blur", "", "").Dispatch()
+}
+
+// ScrollIntoView immediately scrolls an element into view by ID.
+func ScrollIntoView(ctx context.Context, id string) {
+	NewFn(ctx, nil).setDOM(id, "scrollIntoView", "", "").Dispatch()
+}
+
+// Disable immediately sets disabled=true on a form control by ID.
+func Disable(ctx context.Context, id string) {
+	NewFn(ctx, nil).setDOM(id, "disable", "", "").Dispatch()
+}
+
+// Enable immediately sets disabled=false on a form control by ID.
+func Enable(ctx context.Context, id string) {
+	NewFn(ctx, nil).setDOM(id, "enable", "", "").Dispatch()
 }
 
 // RemoveElement immediately removes one DOM element by ID.
