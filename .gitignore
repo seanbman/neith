@@ -1,3 +1,5 @@
+.vscode
+
 static/assets/node_modules/
 static/assets/coverage/
 static/assets/package-lock.json

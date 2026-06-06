@@ -160,6 +160,13 @@ func Script(src string) PageOption {
 	}
 }
 
+// ClientScript sets the Neith browser client script URL.
+func ClientScript(src string) PageOption {
+	return func(p *Page) {
+		p.Scripts = []string{src}
+	}
+}
+
 // Head appends components into the document head.
 func Head(children ...Component) PageOption {
 	return func(p *Page) {

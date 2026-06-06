@@ -45,7 +45,6 @@ used as Neith components.
   - [UI Options](#ui-options)
 - [Example App](#example-app)
 - [Detailed Notes](#detailed-notes)
-- [Development](#development)
 - [License](#license)
 
 ## Features
@@ -65,15 +64,17 @@ used as Neith components.
 
 ```sh
 go get github.com/seanbman/neith
+mkdir -p static/assets
+curl -L https://github.com/seanbman/neith/raw/refs/heads/main/static/assets/neith.min.js -o static/assets/neith.min.js
 ```
 
 Neith requires Go 1.21 or newer.
 
 ## Quick Start
 
-The fastest path is just the Go package. Mount your app with `neith.App`; it
-serves the default page, `/assets/neith.min.js`, and the neutral `ui` stylesheet
-for you.
+The fastest path is the Go package plus the downloaded `neith.min.js` file.
+Mount your app with `neith.App`; it serves the default page for you, while your
+app serves the downloaded browser client from its own static folder.
 
 ```go
 package main
@@ -102,15 +103,20 @@ func clicked(ctx context.Context) neith.FnComponent {
 }
 
 func main() {
-	http.HandleFunc("/", neith.App(app, neith.Title("Neith demo")))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.HandleFunc("/", neith.App(app,
+		neith.Title("Neith demo"),
+		neith.ClientScript("/static/assets/neith.min.js"),
+	))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 ```
 
-Open `http://localhost:8080`. The first request serves Neith's default page. The
-browser client then opens a WebSocket back to the same route with `?neith_id=...`,
-and `App` sends the initial `FnComponent` to the client.
+Open `http://localhost:8080`. The first request serves Neith's default page,
+which references your local `/static/assets/neith.min.js` file. The browser
+client then opens a WebSocket back to the same route with `?neith_id=...`, and
+`App` sends the initial `FnComponent` to the client.
 
 Customize the page when you need to, without hand-writing the shell:
 
@@ -118,6 +124,7 @@ Customize the page when you need to, without hand-writing the shell:
 http.HandleFunc("/", neith.App(app,
 	neith.Title("Admin console"),
 	neith.Target("main", "app"),
+	neith.ClientScript("/static/assets/neith.min.js"),
 	neith.Head(neith.HTML(`<meta name="theme-color" content="#172026">`)),
 ))
 ```
@@ -130,61 +137,42 @@ mounted Neith routes.
 
 ## Browser Assets
 
-There are two supported setup paths.
-
-For a new Neith app, install the Go package and use `neith.App`. That is enough
-to serve the page, `/assets/neith.min.js`, and `/assets/neith-ui.css`.
-
-```sh
-go get github.com/seanbman/neith
-```
-
-For an existing Go app that already serves templ or raw HTML, install the Go
-package, download one browser file, and reference it from your page.
-
-If you use `MiddleWareFn` directly or want to self-host the browser client,
-download `neith.min.js` from:
+Neith apps need the Go package and the browser client file. Download
+`neith.min.js` from:
 
 ```text
-https://raw.githubusercontent.com/seanbman/neith/main/static/assets/neith.min.js
+https://github.com/seanbman/neith/raw/refs/heads/main/static/assets/neith.min.js
 ```
 
-Save it in your app at:
+Save it wherever your app serves static assets. A conventional path is:
 
 ```text
 static/assets/neith.min.js
 ```
 
-Then reference it from your page:
+Then reference your local copy from your page:
 
 ```html
-<script defer src="/assets/neith.min.js"></script>
+<script defer src="/static/assets/neith.min.js"></script>
 ```
 
-Serve that folder with your normal Go static-file handler, for example:
+Or, when using `neith.App`, point the generated page at your local copy:
 
 ```go
-http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("static/assets"))))
+http.HandleFunc("/", neith.App(app,
+	neith.ClientScript("/static/assets/neith.min.js"),
+))
 ```
 
-The optional neutral stylesheet is available at:
+Serve that static folder with your normal Go static-file handler, for example:
 
-```text
-https://raw.githubusercontent.com/seanbman/neith/main/static/assets/neith-ui.css
+```go
+http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 ```
 
-Save it as:
-
-```text
-static/assets/neith-ui.css
-```
-
-For release-pinned apps, replace `main` in the download URLs with the tag or
-branch you want to vendor.
-
-When you do use `neith.App`, it only claims Neith's embedded files, so your app
-can still serve its own files such as `/static/app.css` or `/assets/app.css` from
-a more specific route.
+`neith.App` also serves Neith's neutral stylesheet at `/assets/neith-ui.css`.
+Add your own CSS with `neith.Stylesheet("/static/app.css")` or inline theme
+variables with `neith.Style(...)`.
 
 ## Rendering Components
 
@@ -517,9 +505,10 @@ page := neith.NewPage(
 	neith.Target("main", "app"),
 	neith.TargetClass("app-shell"),
 	neith.BodyClass("theme-default"),
-	neith.Stylesheet("/assets/app.css"),
+	neith.ClientScript("/static/assets/neith.min.js"),
+	neith.Stylesheet("/static/app.css"),
 	neith.Style(`:root { --n-ui-primary-bg: #172026; }`),
-	neith.Script("/assets/app.js"),
+	neith.Script("/static/app.js"),
 	neith.Head(neith.HTML(`<meta name="theme-color" content="#172026">`)),
 	neith.Body(neith.HTML(`<noscript>JavaScript is required.</noscript>`)),
 )
@@ -534,7 +523,8 @@ http.HandleFunc("/", neith.App(app,
 	neith.Target("main", "app"),
 	neith.TargetClass("app-shell"),
 	neith.BodyClass("theme-default"),
-	neith.Stylesheet("/assets/app.css"),
+	neith.ClientScript("/static/assets/neith.min.js"),
+	neith.Stylesheet("/static/app.css"),
 	neith.Style(`:root { --n-ui-primary-bg: #172026; }`),
 ))
 ```
@@ -890,106 +880,50 @@ func Dense() ui.Option {
 
 ## Example App
 
-The repository includes an external consumer-style app in
-`examples/readme-setup`. It has its own `go.mod`, imports
-`github.com/seanbman/neith`, and uses a local `replace` directive so it runs
-against the package source in this repo.
+In your own app, keep detailed markup wherever it already belongs and wrap the
+rendered component with Neith behavior.
 
-Run it from the repo root:
+```go
+import (
+	"context"
+	"net/http"
 
-```sh
-make example
+	"github.com/seanbman/neith"
+	"github.com/seanbman/neith/ui"
+)
+
+func app(ctx context.Context) neith.FnComponent {
+	return neith.View(ctx,
+		ui.Panel(
+			ui.Heading("Settings", ui.Level(1)),
+			settingsForm(), // raw HTML, templ, or any neith.Component
+		),
+		neith.OnSubmit(saveSettings),
+		neith.IntoTag("main"),
+	)
+}
+
+func main() {
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.HandleFunc("/", neith.App(app,
+		neith.Title("Settings"),
+		neith.ClientScript("/static/assets/neith.min.js"),
+		neith.Stylesheet("/static/app.css"),
+	))
+
+	http.ListenAndServe(":8080", nil)
+}
 ```
 
-The example listens on `:8080` by default. If that port is already in use:
-
-```sh
-EXAMPLE_ADDR=:8081 make example
-```
-
-Run it in debug mode from VS Code with the `Debug README Example` launch
-configuration, or start a headless Delve server from the repo root:
-
-```sh
-make example-debug
-```
-
-Then attach with the `Attach README Example` launch configuration. The default
-debug port is `40000`; override it with `DEBUG_PORT=40001 make example-debug`.
-The debug target requires Delve:
-
-```sh
-go install github.com/go-delve/delve/cmd/dlv@latest
-```
-
-If `dlv` still is not found after install, add Go's bin directory to your shell:
-
-```sh
-echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Or run it from the example folder:
-
-```sh
-cd examples/readme-setup
-go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
-go run .
-```
-
-Set `EXAMPLE_ADDR=:8081` before `go run .` if `:8080` is already in use.
-
-Then open:
-
-```text
-http://localhost:8080
-```
-
-The example UI keeps its detailed markup in `templ` components in
-`examples/readme-setup/dashboard.templ`, builds the add-update form with `ui`
-components, then wraps the composed result with `neith.View` in `main.go`. It
-also includes `/assets/neith-ui.css` for neutral default styling.
-`dashboard_templ.go` is the generated Go file checked in beside it. Regenerate
-that file from the repo root with `make example-templ`.
-
-The example serves the package's bundled browser client from `static/assets`, so
-it can test local Neith changes without copying generated assets into the
-example folder.
+This shape works whether `settingsForm()` is built with `ui`, `neith.HTML`,
+`templ`, or your own component type.
 
 ## Detailed Notes
 
-Detailed function notes and usage examples live in `notes`:
+Detailed function notes and usage examples are available in this repository:
 
 - `notes/cache/README.md`
 - `notes/component/README.md`
-
-## Development
-
-Run Go tests:
-
-```sh
-go test ./... -v
-```
-
-Run browser-client tests:
-
-```sh
-cd static/assets
-npm install
-npm test
-```
-
-Type-check browser-client TypeScript:
-
-```sh
-tsc -p static/assets/
-```
-
-Build bundled assets:
-
-```sh
-make assets
-```
 
 ## License
 

@@ -28,6 +28,7 @@ func TestPageRenderCustomTargetAndHead(t *testing.T) {
 	html := RenderComponent(NewPage(
 		Target("section", "app"),
 		TargetClass("shell"),
+		ClientScript("/static/assets/neith.min.js"),
 		Head(HTML(`<meta name="theme-color" content="#172026">`)),
 		Style(`body { color: #172026; }`),
 	))
@@ -35,11 +36,15 @@ func TestPageRenderCustomTargetAndHead(t *testing.T) {
 	for _, want := range []string{
 		`<meta name="theme-color" content="#172026">`,
 		`<style>body { color: #172026; }</style>`,
+		`<script defer src="/static/assets/neith.min.js"></script>`,
 		`<section class="shell" id="app"></section>`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected page to contain %q, got %s", want, html)
 		}
+	}
+	if strings.Contains(html, `<script defer src="/assets/neith.min.js"></script>`) {
+		t.Fatalf("expected ClientScript to replace the default script, got %s", html)
 	}
 }
 
