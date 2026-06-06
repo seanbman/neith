@@ -26,11 +26,6 @@ type adminUpdate struct {
 	ReceivedAt time.Time
 }
 
-func page(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	http.ServeFile(w, r, "static/index.html")
-}
-
 func app(ctx context.Context) neith.FnComponent {
 	if err := ensureCache(ctx, updatesCacheKey, []adminUpdate{}); err != nil {
 		return neith.FnErr(ctx, err)
@@ -283,8 +278,13 @@ func statusClass(status string) string {
 }
 
 func main() {
-	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("../../static/assets"))))
-	http.HandleFunc("/", neith.MiddleWareFn(page, app))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.HandleFunc("/", neith.App(app,
+		neith.Title("Neith README setup"),
+		neith.BodyClass("example-page"),
+		neith.TargetClass("example-target"),
+		neith.Stylesheet("/static/example.css"),
+	))
 
 	addr := os.Getenv("EXAMPLE_ADDR")
 	if addr == "" {

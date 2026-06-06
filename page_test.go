@@ -29,10 +29,12 @@ func TestPageRenderCustomTargetAndHead(t *testing.T) {
 		Target("section", "app"),
 		TargetClass("shell"),
 		Head(HTML(`<meta name="theme-color" content="#172026">`)),
+		Style(`body { color: #172026; }`),
 	))
 
 	for _, want := range []string{
 		`<meta name="theme-color" content="#172026">`,
+		`<style>body { color: #172026; }</style>`,
 		`<section class="shell" id="app"></section>`,
 	} {
 		if !strings.Contains(html, want) {
@@ -56,5 +58,14 @@ func TestAppServesEmbeddedAssets(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "--n-ui-primary-bg") {
 		t.Fatalf("expected embedded stylesheet, got %s", rec.Body.String())
+	}
+}
+
+func TestEmbeddedAssetsOnlyClaimNeithFiles(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/assets/app.css", nil)
+	rec := httptest.NewRecorder()
+
+	if serveEmbeddedAsset(rec, req) {
+		t.Fatal("expected app-owned asset path to be left for the app")
 	}
 }

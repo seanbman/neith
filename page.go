@@ -1,13 +1,13 @@
 package neith
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"html"
 	"io"
-	"io/fs"
 	"net/http"
-	"strings"
+	"time"
 )
 
 //go:embed static/assets/neith.min.js static/assets/neith-ui.css
@@ -167,6 +167,11 @@ func Head(children ...Component) PageOption {
 	}
 }
 
+// Style appends an inline stylesheet to the document head.
+func Style(css string) PageOption {
+	return Head(HTML("<style>" + css + "</style>"))
+}
+
 // Body appends components before the Neith render target.
 func Body(children ...Component) PageOption {
 	return func(p *Page) {
@@ -204,14 +209,27 @@ func classAttr(class string) string {
 }
 
 func serveEmbeddedAsset(w http.ResponseWriter, r *http.Request) bool {
-	if !strings.HasPrefix(r.URL.Path, "/assets/") {
+	var path string
+	var contentType string
+
+	switch r.URL.Path {
+	case "/assets/neith.min.js":
+		path = "static/assets/neith.min.js"
+		contentType = "text/javascript; charset=utf-8"
+	case "/assets/neith-ui.css":
+		path = "static/assets/neith-ui.css"
+		contentType = "text/css; charset=utf-8"
+	default:
 		return false
 	}
-	sub, err := fs.Sub(embeddedAssets, "static/assets")
+
+	body, err := embeddedAssets.ReadFile(path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return true
 	}
-	http.StripPrefix("/assets/", http.FileServer(http.FS(sub))).ServeHTTP(w, r)
+
+	w.Header().Set("Content-Type", contentType)
+	http.ServeContent(w, r, r.URL.Path, time.Time{}, bytes.NewReader(body))
 	return true
 }
