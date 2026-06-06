@@ -233,7 +233,7 @@ type PointerEvent struct {
 	ClientY          int         `json:"clientY"`
 	Composed         bool        `json:"composed"`
 	CtrlKey          bool        `json:"ctrlKey"`
-	CurrentTarget    EventTarget `json:"currentTarget"`
+	Component        EventTarget `json:"component"`
 	DefaultPrevented bool        `json:"defaultPrevented"`
 	Detail           int         `json:"detail"`
 	EventPhase       int         `json:"eventPhase"`
@@ -250,17 +250,19 @@ type PointerEvent struct {
 	PointerType      string      `json:"pointerType"`
 	Pressure         int         `json:"pressure"`
 	RelatedTarget    EventTarget `json:"relatedTarget"`
-	Target           EventTarget `json:"target"`
+	Source           EventTarget `json:"source"`
 }
 
 type TouchEvent struct {
-	ChangedTouches []Touch `json:"changedTouches"`
-	TargetTouches  []Touch `json:"targetTouches"`
-	Touches        []Touch `json:"touches"`
-	LayerX         int     `json:"layerX"`
-	LayerY         int     `json:"layerY"`
-	PageX          int     `json:"pageX"`
-	PageY          int     `json:"pageY"`
+	ChangedTouches []Touch     `json:"changedTouches"`
+	Component      EventTarget `json:"component"`
+	Source         EventTarget `json:"source"`
+	TargetTouches  []Touch     `json:"targetTouches"`
+	Touches        []Touch     `json:"touches"`
+	LayerX         int         `json:"layerX"`
+	LayerY         int         `json:"layerY"`
+	PageX          int         `json:"pageX"`
+	PageY          int         `json:"pageY"`
 }
 
 type Touch struct {
@@ -274,7 +276,7 @@ type Touch struct {
 	RotationAngle int         `json:"rotationAngle"`
 	ScreenX       int         `json:"screenX"`
 	ScreenY       int         `json:"screenY"`
-	Target        EventTarget `json:"target"`
+	Source        EventTarget `json:"source"`
 }
 
 type DragEvent struct {
@@ -288,7 +290,7 @@ type DragEvent struct {
 	ClientY          int         `json:"clientY"`
 	Composed         bool        `json:"composed"`
 	CtrlKey          bool        `json:"ctrlKey"`
-	CurrentTarget    EventTarget `json:"currentTarget"`
+	Component        EventTarget `json:"component"`
 	DefaultPrevented bool        `json:"defaultPrevented"`
 	Detail           int         `json:"detail"`
 	EventPhase       int         `json:"eventPhase"`
@@ -300,7 +302,7 @@ type DragEvent struct {
 	PageX            int         `json:"pageX"`
 	PageY            int         `json:"pageY"`
 	RelatedTarget    EventTarget `json:"relatedTarget"`
-	Target           EventTarget `json:"target"`
+	Source           EventTarget `json:"source"`
 }
 
 type MouseEvent struct {
@@ -314,7 +316,7 @@ type MouseEvent struct {
 	ClientY          int         `json:"clientY"`
 	Composed         bool        `json:"composed"`
 	CtrlKey          bool        `json:"ctrlKey"`
-	CurrentTarget    EventTarget `json:"currentTarget"`
+	Component        EventTarget `json:"component"`
 	DefaultPrevented bool        `json:"defaultPrevented"`
 	Detail           int         `json:"detail"`
 	EventPhase       int         `json:"eventPhase"`
@@ -326,7 +328,7 @@ type MouseEvent struct {
 	PageX            int         `json:"pageX"`
 	PageY            int         `json:"pageY"`
 	RelatedTarget    EventTarget `json:"relatedTarget"`
-	Target           EventTarget `json:"target"`
+	Source           EventTarget `json:"source"`
 }
 
 type KeyboardEvent struct {
@@ -337,7 +339,7 @@ type KeyboardEvent struct {
 	Code             string      `json:"code"`
 	Composed         bool        `json:"composed"`
 	CtrlKey          bool        `json:"ctrlKey"`
-	CurrentTarget    EventTarget `json:"currentTarget"`
+	Component        EventTarget `json:"component"`
 	DefaultPrevented bool        `json:"defaultPrevented"`
 	Detail           int         `json:"detail"`
 	EventPhase       int         `json:"eventPhase"`
@@ -347,7 +349,7 @@ type KeyboardEvent struct {
 	MetaKey          bool        `json:"metaKey"`
 	Repeat           bool        `json:"repeat"`
 	ShiftKey         bool        `json:"shiftKey"`
-	Target           EventTarget `json:"target"`
+	Source           EventTarget `json:"source"`
 }
 
 type FormDataEvent struct {
@@ -355,7 +357,7 @@ type FormDataEvent struct {
 	Bubbles          bool           `json:"bubbles"`
 	Cancelable       bool           `json:"cancelable"`
 	Composed         bool           `json:"composed"`
-	CurrentTarget    EventTarget    `json:"currentTarget"`
+	Component        EventTarget    `json:"component"`
 	DefaultPrevented bool           `json:"defaultPrevented"`
 	EventPhase       int            `json:"eventPhase"`
 	FormData         map[string]any `json:"formData"`

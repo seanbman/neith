@@ -177,7 +177,7 @@ describe("test websocket functions", () => {
         expect(dispatches[0].event.target_id).toEqual(event.target_id);
     });
 
-    test("test rich event target metadata", async () => {
+    test("test rich event component and source metadata", async () => {
         const event = {
             id: "rich-event",
             target_id: "rich-target",
@@ -203,18 +203,18 @@ describe("test websocket functions", () => {
         document.getElementById("rich-button")?.dispatchEvent(click);
         await waitCallback(() => dispatches.length > 0);
 
-        const currentTarget = (dispatches[0].event.data as any).currentTarget;
-        const target = (dispatches[0].event.data as any).target;
-        expect(currentTarget.id).toEqual("rich-target");
-        expect(target.id).toEqual("rich-button");
-        expect(target.name).toEqual("status");
-        expect(target.classList).toEqual(["primary", "important"]);
-        expect(target.dataset).toEqual(["role=admin"]);
-        expect(target.disabled).toEqual(false);
-        expect(target.attributes).toContain("value=open");
+        const component = (dispatches[0].event.data as any).component;
+        const source = (dispatches[0].event.data as any).source;
+        expect(component.id).toEqual("rich-target");
+        expect(source.id).toEqual("rich-button");
+        expect(source.name).toEqual("status");
+        expect(source.classList).toEqual(["primary", "important"]);
+        expect(source.dataset).toEqual(["role=admin"]);
+        expect(source.disabled).toEqual(false);
+        expect(source.attributes).toContain("value=open");
     });
 
-    test("test keyboard event target metadata", async () => {
+    test("test keyboard event component and source metadata", async () => {
         const event = {
             id: "keyboard-event",
             target_id: "keyboard-target",
@@ -246,12 +246,12 @@ describe("test websocket functions", () => {
         const data = dispatches[0].event.data as any;
         expect(data.key).toEqual("Enter");
         expect(data.code).toEqual("Enter");
-        expect(data.currentTarget.id).toEqual("keyboard-target");
-        expect(data.target.id).toEqual("keyboard-input");
-        expect(data.target.value).toEqual("pipe");
+        expect(data.component.id).toEqual("keyboard-target");
+        expect(data.source.id).toEqual("keyboard-input");
+        expect(data.source.value).toEqual("pipe");
     });
 
-    test("test drag event target metadata", async () => {
+    test("test drag event component and source metadata", async () => {
         const event = {
             id: "drag-event",
             target_id: "drag-target",
@@ -283,11 +283,11 @@ describe("test websocket functions", () => {
         const data = dispatches[0].event.data as any;
         expect(data.clientX).toEqual(10);
         expect(data.clientY).toEqual(20);
-        expect(data.currentTarget.id).toEqual("drag-target");
-        expect(data.target.id).toEqual("drag-button");
+        expect(data.component.id).toEqual("drag-target");
+        expect(data.source.id).toEqual("drag-button");
     });
 
-    test("test touch event target metadata", async () => {
+    test("test touch event component and source metadata", async () => {
         const event = {
             id: "touch-event",
             target_id: "touch-target",
@@ -335,7 +335,9 @@ describe("test websocket functions", () => {
         await waitCallback(() => dispatches.length > 0);
 
         const data = dispatches[0].event.data as any;
-        expect(data.changedTouches[0].target.id).toEqual("touch-button");
+        expect(data.component.id).toEqual("touch-target");
+        expect(data.source.id).toEqual("touch-button");
+        expect(data.changedTouches[0].source.id).toEqual("touch-button");
         expect(data.touches[0].clientX).toEqual(11);
         expect(data.layerX).toEqual(1);
     });

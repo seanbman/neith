@@ -39,9 +39,9 @@ export function parseEventListeners(element: Element, d: Dispatch): Dispatch {
  * Binds all event listeners described by a render dispatch.
  *
  * Each listener is attached to the fcmp wrapper element identified by target_id.
- * Browser events bubble up from the actual clicked/typed/touched element, so
- * event payload parsing can include both the wrapper (`currentTarget`) and the
- * concrete interacted element (`target`).
+ * Browser events bubble up from the actual clicked/typed/touched element. Event
+ * payload parsing exposes the wrapper as `component` and the concrete
+ * interacted element as `source`.
  */
 export function addEventListeners(
     d: Dispatch,

@@ -151,7 +151,7 @@ function parsePointerEvent(ev: PointerEvent): PointerEventProperties {
         clientY: ev.clientY,
         composed: ev.composed,
         ctrlKey: ev.ctrlKey,
-        currentTarget: parseEventTarget(ev.currentTarget),
+        component: parseEventTarget(ev.currentTarget),
         defaultPrevented: ev.defaultPrevented,
         detail: ev.detail,
         eventPhase: ev.eventPhase,
@@ -168,7 +168,7 @@ function parsePointerEvent(ev: PointerEvent): PointerEventProperties {
         pointerType: ev.pointerType,
         pressure: ev.pressure,
         relatedTarget: parseEventTarget(ev.relatedTarget),
-        target: parseEventTarget(ev.target),
+        source: parseEventTarget(ev.target),
     };
 }
 
@@ -181,6 +181,8 @@ function parsePointerEvent(ev: PointerEvent): PointerEventProperties {
 function parseTouchEvent(ev: TouchEvent & { layerX: number; layerY: number; pageX: number; pageY: number }): TouchEventProperties & { layerX: number; layerY: number; pageX: number; pageY: number } {
     return {
         changedTouches: Array.from(ev.changedTouches).map((t) => parseTouch(t)),
+        component: parseEventTarget(ev.currentTarget),
+        source: parseEventTarget(ev.target),
         targetTouches: Array.from(ev.targetTouches).map((t) => parseTouch(t)),
         touches: Array.from(ev.touches).map((t) => parseTouch(t)),
         layerX: ev.layerX,
@@ -205,7 +207,7 @@ function parseTouch(ev: Touch): TouchProperties {
         rotationAngle: ev.rotationAngle,
         screenX: ev.screenX,
         screenY: ev.screenY,
-        target: parseEventTarget(ev.target),
+        source: parseEventTarget(ev.target),
     };
 }
 
@@ -224,7 +226,7 @@ function parseDragEvent(ev: DragEvent): DragEventProperties {
         clientY: ev.clientY,
         composed: ev.composed,
         ctrlKey: ev.ctrlKey,
-        currentTarget: parseEventTarget(ev.currentTarget),
+        component: parseEventTarget(ev.currentTarget),
         defaultPrevented: ev.defaultPrevented,
         detail: ev.detail,
         eventPhase: ev.eventPhase,
@@ -236,7 +238,7 @@ function parseDragEvent(ev: DragEvent): DragEventProperties {
         pageX: ev.pageX,
         pageY: ev.pageY,
         relatedTarget: parseEventTarget(ev.relatedTarget),
-        target: parseEventTarget(ev.target),
+        source: parseEventTarget(ev.target),
     };
 }
 
@@ -255,7 +257,7 @@ function parseMouseEvent(ev: MouseEvent): MouseEventProperties {
         clientY: ev.clientY,
         composed: ev.composed,
         ctrlKey: ev.ctrlKey,
-        currentTarget: parseEventTarget(ev.currentTarget),
+        component: parseEventTarget(ev.currentTarget),
         defaultPrevented: ev.defaultPrevented,
         detail: ev.detail,
         eventPhase: ev.eventPhase,
@@ -267,7 +269,7 @@ function parseMouseEvent(ev: MouseEvent): MouseEventProperties {
         pageX: ev.pageX,
         pageY: ev.pageY,
         relatedTarget: parseEventTarget(ev.relatedTarget),
-        target: parseEventTarget(ev.target),
+        source: parseEventTarget(ev.target),
     };
 }
 
@@ -283,7 +285,7 @@ function parseKeyboardEvent(ev: KeyboardEvent): KeyboardEventProperties {
         code: ev.code,
         composed: ev.composed,
         ctrlKey: ev.ctrlKey,
-        currentTarget: parseEventTarget(ev.currentTarget),
+        component: parseEventTarget(ev.currentTarget),
         defaultPrevented: ev.defaultPrevented,
         detail: ev.detail,
         eventPhase: ev.eventPhase,
@@ -293,7 +295,7 @@ function parseKeyboardEvent(ev: KeyboardEvent): KeyboardEventProperties {
         metaKey: ev.metaKey,
         repeat: ev.repeat,
         shiftKey: ev.shiftKey,
-        target: parseEventTarget(ev.target),
+        source: parseEventTarget(ev.target),
     };
 }
 
@@ -311,7 +313,7 @@ type PointerEventProperties = {
     clientY: number;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: EventTargetData | null;
+    component: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;
@@ -328,7 +330,7 @@ type PointerEventProperties = {
     pointerType: string;
     pressure: number;
     relatedTarget: EventTargetData | null;
-    target: EventTargetData | null;
+    source: EventTargetData | null;
 };
 
 /**
@@ -336,6 +338,8 @@ type PointerEventProperties = {
  */
 type TouchEventProperties = {
     changedTouches: TouchProperties[];
+    component: EventTargetData | null;
+    source: EventTargetData | null;
     targetTouches: TouchProperties[];
     touches: TouchProperties[];
     layerX: number;
@@ -358,7 +362,7 @@ type TouchProperties = {
     rotationAngle: number;
     screenX: number;
     screenY: number;
-    target: EventTargetData | null;
+    source: EventTargetData | null;
 };
 
 /**
@@ -375,7 +379,7 @@ type DragEventProperties = {
     clientY: number;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: EventTargetData | null;
+    component: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;
@@ -387,7 +391,7 @@ type DragEventProperties = {
     pageX: number;
     pageY: number;
     relatedTarget: EventTargetData | null;
-    target: EventTargetData | null;
+    source: EventTargetData | null;
 };
 
 /**
@@ -404,7 +408,7 @@ type MouseEventProperties = {
     clientY: number;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: EventTargetData | null;
+    component: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;
@@ -416,7 +420,7 @@ type MouseEventProperties = {
     pageX: number;
     pageY: number;
     relatedTarget: EventTargetData | null;
-    target: EventTargetData | null;
+    source: EventTargetData | null;
 };
 
 /**
@@ -430,7 +434,7 @@ type KeyboardEventProperties = {
     code: string;
     composed: boolean;
     ctrlKey: boolean;
-    currentTarget: EventTargetData | null;
+    component: EventTargetData | null;
     defaultPrevented: boolean;
     detail: number;
     eventPhase: number;
@@ -440,5 +444,5 @@ type KeyboardEventProperties = {
     metaKey: boolean;
     repeat: boolean;
     shiftKey: boolean;
-    target: EventTargetData | null;
+    source: EventTargetData | null;
 };
