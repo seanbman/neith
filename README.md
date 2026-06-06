@@ -71,8 +71,9 @@ Neith requires Go 1.21 or newer.
 
 ## Quick Start
 
-Mount your app with `neith.App`. It serves the default page, the browser client,
-and the neutral `ui` stylesheet for you.
+The fastest path is just the Go package. Mount your app with `neith.App`; it
+serves the default page, `/assets/neith.min.js`, and the neutral `ui` stylesheet
+for you.
 
 ```go
 package main
@@ -129,11 +130,20 @@ mounted Neith routes.
 
 ## Browser Assets
 
-`neith.App` serves the browser client for you from the embedded asset at
-`/assets/neith.min.js`. Most apps do not need to download or copy the file.
+There are two supported setup paths.
 
-If you use `MiddleWareFn` with a custom page or want to self-host the asset,
-download:
+For a new Neith app, install the Go package and use `neith.App`. That is enough
+to serve the page, `/assets/neith.min.js`, and `/assets/neith-ui.css`.
+
+```sh
+go get github.com/seanbman/neith
+```
+
+For an existing Go app that already serves templ or raw HTML, install the Go
+package, download one browser file, and reference it from your page.
+
+If you use `MiddleWareFn` directly or want to self-host the browser client,
+download `neith.min.js` from:
 
 ```text
 https://raw.githubusercontent.com/seanbman/neith/main/static/assets/neith.min.js
@@ -151,6 +161,12 @@ Then reference it from your page:
 <script defer src="/assets/neith.min.js"></script>
 ```
 
+Serve that folder with your normal Go static-file handler, for example:
+
+```go
+http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("static/assets"))))
+```
+
 The optional neutral stylesheet is available at:
 
 ```text
@@ -165,6 +181,10 @@ static/assets/neith-ui.css
 
 For release-pinned apps, replace `main` in the download URLs with the tag or
 branch you want to vendor.
+
+When you do use `neith.App`, it only claims Neith's embedded files, so your app
+can still serve its own files such as `/static/app.css` or `/assets/app.css` from
+a more specific route.
 
 ## Rendering Components
 
@@ -498,14 +518,28 @@ page := neith.NewPage(
 	neith.TargetClass("app-shell"),
 	neith.BodyClass("theme-default"),
 	neith.Stylesheet("/assets/app.css"),
+	neith.Style(`:root { --n-ui-primary-bg: #172026; }`),
 	neith.Script("/assets/app.js"),
 	neith.Head(neith.HTML(`<meta name="theme-color" content="#172026">`)),
 	neith.Body(neith.HTML(`<noscript>JavaScript is required.</noscript>`)),
 )
-http.HandleFunc("/", neith.MiddleWareFn(page.ServeHTTP, app))
 ```
 
-Render or serve the page directly when useful.
+The same page options can be passed directly to `App`, which is the usual path
+for an application:
+
+```go
+http.HandleFunc("/", neith.App(app,
+	neith.Title("Admin"),
+	neith.Target("main", "app"),
+	neith.TargetClass("app-shell"),
+	neith.BodyClass("theme-default"),
+	neith.Stylesheet("/assets/app.css"),
+	neith.Style(`:root { --n-ui-primary-bg: #172026; }`),
+))
+```
+
+Render or serve a `Page` directly when useful for tests or lower-level setups.
 
 ```go
 html := neith.RenderComponent(page)
@@ -513,7 +547,8 @@ _ = page.Render(ctx, w)
 page.ServeHTTP(w, r)
 ```
 
-`MiddleWareFn` remains available for custom HTTP shells.
+`MiddleWareFn` remains available when you intentionally want to supply your own
+HTTP shell.
 
 ```go
 http.HandleFunc("/", neith.MiddleWareFn(customShell, app))

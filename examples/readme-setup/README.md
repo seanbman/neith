@@ -12,7 +12,7 @@ outside.
 - [What It Shows](#what-it-shows)
 - [Project Shape](#project-shape)
 - [Regenerating Templ](#regenerating-templ)
-- [Local Assets](#local-assets)
+- [Styling](#styling)
 
 ## Module Setup
 
@@ -84,8 +84,9 @@ The example renders a small admin-style cache monitor with `templ` components in
 keeps the table and record panels in templ. This shows how an existing templ app
 can migrate to Neith one component at a time.
 
-The page includes `/assets/neith-ui.css` for neutral default styling. Override
-its `--n-ui-*` CSS variables from the app when you want a custom theme.
+The app uses `neith.App`, so Neith serves the HTML page, `/assets/neith.min.js`,
+and `/assets/neith-ui.css`. The example adds `/static/example.css` as an
+app-specific stylesheet through `neith.Stylesheet`.
 
 Fill out the form and submit it to add a row to the table. Use a row's `Delete`
 button to remove that record from the current cache value. Each add or delete
@@ -110,7 +111,7 @@ examples/readme-setup/
 ├── go.mod
 ├── main.go
 └── static/
-    └── index.html
+    └── example.css
 ```
 
 ## Regenerating Templ
@@ -122,7 +123,11 @@ repo root with `make example-templ`, or from this folder with:
 go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
 ```
 
-## Local Assets
+## Styling
 
-`main.go` serves the package's bundled browser client from `../../static/assets`
-so the example can test local Neith changes without copying generated assets.
+`neith.App` serves the package's bundled browser client and neutral UI CSS from
+embedded assets. `main.go` serves only `/static/example.css`, which keeps the
+example-specific dashboard styles separate from the framework page.
+
+Override Neith's `--n-ui-*` CSS variables in your own stylesheet or with
+`neith.Style` when you want a custom theme without replacing the default page.
