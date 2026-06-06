@@ -3,7 +3,6 @@ package neith
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -34,6 +33,14 @@ func (c *conns) Delete(id string) {
 	delete(c.pool, id)
 }
 
+func (c *conns) DeleteIf(id string, conn *conn) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.pool[id] == conn {
+		delete(c.pool, id)
+	}
+}
+
 type (
 	conns struct {
 		mu   sync.Mutex
@@ -41,6 +48,8 @@ type (
 	}
 	conn struct {
 		websocket *websocket.Conn
+		closeOnce sync.Once
+		done      chan struct{}
 		ID        string
 		HandlerID string
 		LastPing  time.Time
@@ -62,6 +71,7 @@ func newConn(w http.ResponseWriter, r *http.Request, handlerID string, ID string
 
 	c := &conn{
 		websocket: websocket,
+		done:      make(chan struct{}),
 		ID:        ID,
 		HandlerID: handlerID,
 		Messages:  make(chan []byte, 16),
@@ -74,94 +84,144 @@ func (c *conn) close() error {
 	if c == nil {
 		return errors.New("cannot close nil connection")
 	}
-	go func() {
-		// After CacheTimeOut, delete cache if connection is not re-established
-		time.Sleep(config.CacheTimeOut)
-		_, ok := connPool.Get(c.ID)
-		if !ok {
-			sm.delete(c.ID)
-		}
-	}()
 
-	evtListeners.Delete(c)
-	connPool.Delete(c.ID)
-	c.websocket.Close()
+	c.closeOnce.Do(func() {
+		if c.done != nil {
+			close(c.done)
+		}
+
+		if c.ID != "" {
+			evtListeners.Delete(c)
+			connPool.DeleteIf(c.ID, c)
+			go c.cleanupCacheAfterTimeout()
+		}
+
+		if c.websocket != nil {
+			if err := c.websocket.Close(); err != nil {
+				config.Logger.Debug("error closing websocket", "error", err)
+			}
+		}
+	})
 	return nil
 }
 
-func (c *conn) listen() {
-	go func(c *conn) {
-		defer c.close()
-		var dispatch Dispatch
-		for {
-			_, message, err := c.websocket.ReadMessage()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(
-					err,
-					websocket.CloseGoingAway,
-					websocket.CloseAbnormalClosure,
-					websocket.CloseNormalClosure,
-				) {
-					log.Printf("error: %v", err)
-				}
-				close(c.Messages)
-				break
-			}
-			// Parse dispatch from websocket message
-			err = json.Unmarshal(message, &dispatch)
-			if err != nil {
-				log.Printf("error: %v", err)
-				continue
-			}
-			// Get handler from handler pool
-			handler, ok := handlers.Get(dispatch.HandlerID)
-			if !ok {
-				log.Printf("error: handler '%s' not found", dispatch.HandlerID)
-				continue
-			}
-			// Set conn on dispatch
-			dispatch.conn = c
-			// Dispatch to handler
-			handler.in <- dispatch
-		}
-	}(c)
+func (c *conn) cleanupCacheAfterTimeout() {
+	time.Sleep(config.CacheTimeOut)
+	_, ok := connPool.Get(c.ID)
+	if !ok {
+		sm.delete(c.ID)
+	}
+}
+
+func (c *conn) readLoop() {
+	defer c.close()
 
 	for {
-		msg, ok := <-c.Messages
-		if !ok {
-			c.close()
-			break
-		}
-		if c.websocket == nil {
-			break
+		_, message, err := c.websocket.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(
+				err,
+				websocket.CloseGoingAway,
+				websocket.CloseAbnormalClosure,
+				websocket.CloseNormalClosure,
+			) {
+				config.Logger.Error("error reading websocket message", "error", err)
+			}
+			return
 		}
 
-		if err := c.websocket.WriteMessage(1, msg); err != nil {
-			config.Logger.Error("error writing message", "error", err)
-			c.close()
+		var dispatch Dispatch
+		if err := json.Unmarshal(message, &dispatch); err != nil {
+			config.Logger.Error("error decoding websocket dispatch", "error", err)
+			continue
+		}
+
+		handler, ok := handlers.Get(dispatch.HandlerID)
+		if !ok {
+			config.Logger.Error("handler not found", "handler_id", dispatch.HandlerID)
+			continue
+		}
+
+		dispatch.conn = c
+		select {
+		case <-c.done:
+			return
+		case handler.in <- dispatch:
 		}
 	}
 }
 
-func (c *conn) Publish(msg []byte) {
-	// if msg is not json encodable, return
-	_, err := json.Marshal(msg)
-	if err != nil {
-		config.Logger.Error("message not json encodable", "error", err)
-		return
+func (c *conn) writeLoop() {
+	for {
+		select {
+		case <-c.done:
+			return
+		case msg, ok := <-c.Messages:
+			if !ok {
+				c.close()
+				return
+			}
+			if c.websocket == nil {
+				c.close()
+				return
+			}
+			if err := c.websocket.WriteMessage(1, msg); err != nil {
+				config.Logger.Error("error writing message", "error", err)
+				c.close()
+				return
+			}
+		}
 	}
+}
+
+func (c *conn) listen() {
+	go c.readLoop()
+	c.writeLoop()
+}
+
+func (c *conn) Publish(msg []byte) {
 	if c == nil {
 		config.Logger.Warn("connection severed, message not sent")
 		return
 	}
+	if c.Messages == nil {
+		config.Logger.Warn("connection has no message queue, message not sent")
+		return
+	}
+	if _, err := json.Marshal(msg); err != nil {
+		config.Logger.Error("message not json encodable", "error", err)
+		return
+	}
+
 	conn, _ := connPool.Get(c.ID)
 	if conn != c {
 		return
 	}
-	c.Messages <- msg
+	if c.done == nil {
+		c.Messages <- msg
+		return
+	}
+
+	select {
+	case <-c.done:
+		return
+	case c.Messages <- msg:
+	}
 }
 
 func (c *conn) Write(p []byte) (n int, err error) {
-	c.Messages <- p
-	return len(p), nil
+	if c == nil || c.Messages == nil {
+		return 0, errors.New("connection not writable")
+	}
+	if c.done == nil {
+		c.Messages <- p
+		return len(p), nil
+	}
+
+	select {
+	case <-c.done:
+		return 0, errors.New("connection closed")
+	case c.Messages <- p:
+		return len(p), nil
+	}
 }

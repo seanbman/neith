@@ -189,17 +189,19 @@ func testUseCacheOnCacheTimeOut(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	flag := false
+	timedOut := make(chan struct{})
 	OnCacheTimeOut(cache, func() {
-		flag = true
+		close(timedOut)
 	})
 
 	timeOut := time.Millisecond * 5
 	cache.Set(false, timeOut)
-	time.Sleep(timeOut * 5)
-	if !flag {
-		t.Error("expected flag to be set to true")
+	select {
+	case <-timedOut:
+	case <-time.After(timeOut * 5):
+		t.Fatal("expected timeout callback to run")
 	}
+	waitCacheDeleted(t, t.Name())
 }
 
 func testUseCacheOnChange(t *testing.T) {
@@ -271,6 +273,20 @@ type testStruct struct {
 func resetTestCacheStore() {
 	sm = newStoreManager()
 	cacheEvents = newCacheEventRegistry()
+}
+
+func waitCacheDeleted(t *testing.T, key string) {
+	t.Helper()
+
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		_, err := UseCache[bool](_test_context(), key)
+		if errors.Is(err, ErrCacheNotFound) {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("cache %q was not deleted", key)
 }
 
 func BenchmarkUseCache(b *testing.B) {

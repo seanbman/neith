@@ -100,7 +100,7 @@ func (c *Cache[T]) Set(data T, timeout ...time.Duration) error {
 		return err
 	}
 
-	go c.watchExpiry(c.updatedAt)
+	go watchCacheExpiry[T](c.storeKey, c.cacheKey, c.updatedAt, c.timeOut)
 	return nil
 }
 
@@ -187,19 +187,19 @@ func (c *Cache[T]) id() string {
 	return cacheID(c.storeKey, c.cacheKey)
 }
 
-// watchExpiry deletes a cache entry if this specific update has expired.
+// watchCacheExpiry deletes a cache entry if this specific update has expired.
 //
 // Each Set call starts its own watcher. The updatedAt argument lets the watcher
 // detect stale goroutines: if another Set call updated the cache after this
 // watcher started, the watcher exits without deleting the newer value.
-func (c *Cache[T]) watchExpiry(updatedAt time.Time) {
-	if c.timeOut <= 0 {
+func watchCacheExpiry[T any](storeKey, cacheKey string, updatedAt time.Time, timeOut time.Duration) {
+	if timeOut <= 0 {
 		return
 	}
 
-	time.Sleep(c.timeOut)
+	time.Sleep(timeOut)
 
-	current, err := getCache[T](c.storeKey, c.cacheKey)
+	current, err := getCache[T](storeKey, cacheKey)
 	if err != nil || !current.updatedAt.Equal(updatedAt) || time.Now().Before(current.Expiry()) {
 		return
 	}

@@ -213,6 +213,27 @@ func (h handler) Error(d Dispatch) {
 	config.Logger.Error(d.FnError)
 }
 
+func (h handler) pingConnection(c *conn, d Dispatch) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.done:
+			return
+		default:
+		}
+
+		h.Ping(d)
+
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
 type Writer struct {
 	http.ResponseWriter
 	buf []byte
@@ -270,19 +291,7 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 		pinger.ConnID = id
 		pinger.HandlerID = handler.id
 
-		// Send ping to client
-		go func(d Dispatch) {
-			for {
-				// Check if connection is still open
-				conn, _ := connPool.Get(d.ConnID)
-				if conn != d.conn {
-					// Connection has been replaced
-					break
-				}
-				handler.Ping(d)
-				time.Sleep(5 * time.Second)
-			}
-		}(*pinger)
+		go handler.pingConnection(newConnection, *pinger)
 
 		newConnection.listen()
 	}
