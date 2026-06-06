@@ -110,6 +110,7 @@ type EventListener struct {
 func newEventListener(on OnEvent, f FnComponent, h HandleFn) EventListener {
 	if f.dispatch.conn == nil {
 		config.Logger.Error("connection not found")
+		return EventListener{}
 	}
 
 	el := EventListener{
@@ -136,23 +137,23 @@ func (e *eventListeners) Add(conn *conn, el EventListener) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if _, ok := e.el[conn.ID]; !ok {
-		e.el[conn.ID] = make(map[string]EventListener)
+	if _, ok := e.el[conn.ClientID]; !ok {
+		e.el[conn.ClientID] = make(map[string]EventListener)
 	}
-	e.el[conn.ID][el.ID] = el
+	e.el[conn.ClientID][el.ID] = el
 }
 
 func (e *eventListeners) Delete(conn *conn) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	delete(e.el, conn.ID)
+	delete(e.el, conn.ClientID)
 }
 
 func (e *eventListeners) Get(id string, conn *conn) (EventListener, bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	event, ok := e.el[conn.ID][id]
+	event, ok := e.el[conn.ClientID][id]
 	return event, ok
 }

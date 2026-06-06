@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 
 func _test_context() context.Context {
 	dd := dispatchDetails{
-		ConnID:    "test_conn_id",
+		ClientID:  "test_client_id",
 		Conn:      &conn{},
 		HandlerID: "test_handler_id",
 	}

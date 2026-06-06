@@ -17,7 +17,7 @@ const (
 )
 
 type dispatchDetails struct {
-	ConnID    string
+	ClientID  string
 	Conn      *conn
 	HandlerID string
 }

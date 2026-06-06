@@ -7,13 +7,13 @@ import (
 
 func TestConnCloseIsIdempotent(t *testing.T) {
 	c := &conn{
-		ID:       "close-idempotent",
+		ClientID: "close-idempotent",
 		done:     make(chan struct{}),
 		Messages: make(chan []byte, 1),
 	}
-	connPool.Set(c.ID, c)
+	clientSessions.Attach(c.ClientID, c)
 	t.Cleanup(func() {
-		connPool.Delete(c.ID)
+		clientSessions.Delete(c.ClientID)
 	})
 
 	if err := c.close(); err != nil {
@@ -32,31 +32,31 @@ func TestConnCloseIsIdempotent(t *testing.T) {
 
 func TestConnCloseDoesNotDeleteReplacement(t *testing.T) {
 	oldConn := &conn{
-		ID:       "replacement",
+		ClientID: "replacement",
 		done:     make(chan struct{}),
 		Messages: make(chan []byte, 1),
 	}
 	newConn := &conn{
-		ID:       oldConn.ID,
+		ClientID: oldConn.ClientID,
 		done:     make(chan struct{}),
 		Messages: make(chan []byte, 1),
 	}
 
-	connPool.Set(oldConn.ID, oldConn)
-	connPool.Set(newConn.ID, newConn)
+	clientSessions.Attach(oldConn.ClientID, oldConn)
+	clientSessions.Attach(newConn.ClientID, newConn)
 	t.Cleanup(func() {
-		connPool.Delete(newConn.ID)
+		clientSessions.Delete(newConn.ClientID)
 	})
 
 	if err := oldConn.close(); err != nil {
 		t.Fatalf("old connection close failed: %v", err)
 	}
 
-	got, ok := connPool.Get(newConn.ID)
+	got, ok := clientSessions.ActiveConn(newConn.ClientID)
 	if !ok {
 		t.Fatal("replacement connection was deleted")
 	}
 	if got != newConn {
-		t.Fatal("connection pool no longer points at replacement")
+		t.Fatal("client session no longer points at replacement connection")
 	}
 }
