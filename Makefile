@@ -1,6 +1,8 @@
 .PHONY: templ example-templ example example-debug
 
-VERSION = 0.4
+VERSION ?= 0.4.0
+TAG ?= v$(VERSION)
+TAG_FLAGS ?= -s
 ESBUILD = ./es-build
 GOPATH_BIN = $(shell go env GOPATH)/bin
 DLV ?= $(GOPATH_BIN)/dlv
@@ -50,7 +52,7 @@ sass:
 	sass --watch static/assets/sass:static/assets/stylesheets
 
 publish:
-	git tag -s v0.3.305 -m "neith v$(VERSION)" && \
-	git push --tags && \
-	GOPROXY=proxy.golang.org go list -m github.com/seanbman/neith@v$(VERSION) && \
-	curl https://sum.golang.org/lookup/github.com/seanbman/neith@v$(VERSION)
+	git tag $(TAG_FLAGS) $(TAG) -m "neith $(TAG)" && \
+	git push origin $(TAG) && \
+	GOPROXY=proxy.golang.org go list -m github.com/seanbman/neith@$(TAG) && \
+	curl https://sum.golang.org/lookup/github.com/seanbman/neith@$(TAG)
