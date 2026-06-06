@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="static/logo.png" alt="Neith logo" width="280">
+</p>
+
 # Neith
 
 Neith is a small Go package for building server-rendered, interactive HTML components.
