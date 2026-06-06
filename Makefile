@@ -1,12 +1,13 @@
 .PHONY: templ example-templ example example-debug
 
-VERSION ?= 0.4.1
+VERSION ?= 0.4.11
 TAG ?= v$(VERSION)
 TAG_FLAGS ?= -s
 ESBUILD = ./es-build
 GOPATH_BIN = $(shell go env GOPATH)/bin
 DLV ?= $(GOPATH_BIN)/dlv
 DEBUG_PORT ?= 40000
+EXAMPLE_ADDR ?= :8080
 TEMPL_VERSION ?= v0.2.513
 
 make:
@@ -17,7 +18,7 @@ test:
 	cd static/assets && npm install && npm test
 
 example:
-	cd examples/readme-setup && go run .
+	cd examples/readme-setup && EXAMPLE_ADDR=$(EXAMPLE_ADDR) go run .
 
 example-templ:
 	cd examples/readme-setup && go run github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION) generate
@@ -32,12 +33,12 @@ coverage:
 
 assets: templ
 	tsc -p "static/assets/"
-	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/index.min.js
+	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/neith.min.js
 	./tailwindcss -i static/assets/stylesheets/tailwind.css -o static/assets/stylesheets/tailwind.min.css --minify
 	sass static/assets/sass:static/assets/stylesheets
 
 bundle:
-	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/index.min.js
+	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/neith.min.js
 
 templ:
 	go run github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION) generate

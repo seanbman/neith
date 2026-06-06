@@ -20,8 +20,10 @@ func TestHandlerUploadStoresMultipartFiles(t *testing.T) {
 		UploadMaxBytes:  1 << 20,
 		UploadMaxMemory: 1 << 20,
 	}
+	defaultRuntime.config = config
 	t.Cleanup(func() {
 		config = previous
+		defaultRuntime.config = previous
 	})
 
 	var body bytes.Buffer

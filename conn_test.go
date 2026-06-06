@@ -6,14 +6,16 @@ import (
 )
 
 func TestConnCloseIsIdempotent(t *testing.T) {
+	rt := newRuntime(config)
 	c := &conn{
+		rt:       rt,
 		ClientID: "close-idempotent",
 		done:     make(chan struct{}),
 		Messages: make(chan []byte, 1),
 	}
-	clientSessions.Attach(c.ClientID, c)
+	rt.sessions.Attach(c.ClientID, c)
 	t.Cleanup(func() {
-		clientSessions.Delete(c.ClientID)
+		rt.sessions.Delete(c.ClientID)
 	})
 
 	if err := c.close(); err != nil {
@@ -31,28 +33,31 @@ func TestConnCloseIsIdempotent(t *testing.T) {
 }
 
 func TestConnCloseDoesNotDeleteReplacement(t *testing.T) {
+	rt := newRuntime(config)
 	oldConn := &conn{
+		rt:       rt,
 		ClientID: "replacement",
 		done:     make(chan struct{}),
 		Messages: make(chan []byte, 1),
 	}
 	newConn := &conn{
+		rt:       rt,
 		ClientID: oldConn.ClientID,
 		done:     make(chan struct{}),
 		Messages: make(chan []byte, 1),
 	}
 
-	clientSessions.Attach(oldConn.ClientID, oldConn)
-	clientSessions.Attach(newConn.ClientID, newConn)
+	rt.sessions.Attach(oldConn.ClientID, oldConn)
+	rt.sessions.Attach(newConn.ClientID, newConn)
 	t.Cleanup(func() {
-		clientSessions.Delete(newConn.ClientID)
+		rt.sessions.Delete(newConn.ClientID)
 	})
 
 	if err := oldConn.close(); err != nil {
 		t.Fatalf("old connection close failed: %v", err)
 	}
 
-	got, ok := clientSessions.ActiveConn(newConn.ClientID)
+	got, ok := rt.sessions.ActiveConn(newConn.ClientID)
 	if !ok {
 		t.Fatal("replacement connection was deleted")
 	}

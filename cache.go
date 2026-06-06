@@ -16,6 +16,7 @@ const (
 
 type Cache[T any] struct {
 	data      T
+	rt        *runtime
 	storeKey  string
 	cacheKey  string
 	createdAt time.Time
@@ -36,21 +37,23 @@ func NewCache[T any](ctx context.Context, key string, initial T) (Cache[T], erro
 	if err != nil {
 		return Cache[T]{}, err
 	}
+	rt := runtimeFromDispatch(dispatch)
 
-	if _, err := getCache[T](dispatch.ClientID, key); err == nil || errors.Is(err, ErrCacheWrongType) {
+	if _, err := getCache[T](rt, dispatch.ClientID, key); err == nil || errors.Is(err, ErrCacheWrongType) {
 		return Cache[T]{}, ErrCacheExists
 	}
 
 	cache := Cache[T]{
 		data:      initial,
+		rt:        rt,
 		storeKey:  dispatch.ClientID,
 		cacheKey:  key,
 		createdAt: time.Now(),
 		updatedAt: time.Now(),
-		timeOut:   config.CacheTimeOut,
+		timeOut:   rt.Config().CacheTimeOut,
 	}
 
-	if err := createCache(cache); err != nil {
+	if err := createCache(rt, cache); err != nil {
 		return Cache[T]{}, err
 	}
 	return cache, nil
@@ -68,7 +71,7 @@ func UseCache[T any](ctx context.Context, key string) (Cache[T], error) {
 	if err != nil {
 		return Cache[T]{}, err
 	}
-	return getCache[T](dispatch.ClientID, key)
+	return getCache[T](runtimeFromDispatch(dispatch), dispatch.ClientID, key)
 }
 
 // Set writes a new value into the cache and refreshes its expiry timer.
@@ -79,7 +82,8 @@ func UseCache[T any](ctx context.Context, key string) (Cache[T], error) {
 // than config.CacheTimeOut falls back to config.CacheTimeOut. Set also triggers
 // OnCacheChange callbacks and starts an expiry watcher for this exact update.
 func (c *Cache[T]) Set(data T, timeout ...time.Duration) error {
-	current, err := getCache[T](c.storeKey, c.cacheKey)
+	rt := c.runtime()
+	current, err := getCache[T](rt, c.storeKey, c.cacheKey)
 	if err != nil && !errors.Is(err, ErrCacheNotFound) {
 		return err
 	}
@@ -93,14 +97,15 @@ func (c *Cache[T]) Set(data T, timeout ...time.Duration) error {
 	}
 
 	c.data = data
-	c.timeOut = resolveCacheTimeout(current, timeout...)
+	c.timeOut = resolveCacheTimeout(rt, current, timeout...)
 	c.updatedAt = time.Now()
 
-	if err := setCache(c.storeKey, c.cacheKey, *c); err != nil {
+	c.rt = rt
+	if err := setCache(rt, c.storeKey, c.cacheKey, *c); err != nil {
 		return err
 	}
 
-	go watchCacheExpiry[T](c.storeKey, c.cacheKey, c.updatedAt, c.timeOut)
+	go watchCacheExpiry[T](rt, c.storeKey, c.cacheKey, c.updatedAt, c.timeOut)
 	return nil
 }
 
@@ -109,7 +114,7 @@ func (c *Cache[T]) Set(data T, timeout ...time.Duration) error {
 // If the cache no longer exists or cannot be read as T, Value returns the zero
 // value for T. Use UseCache when the caller needs to distinguish those errors.
 func (c *Cache[T]) Value() T {
-	cache, err := getCache[T](c.storeKey, c.cacheKey)
+	cache, err := getCache[T](c.runtime(), c.storeKey, c.cacheKey)
 	if err != nil {
 		return *new(T)
 	}
@@ -121,7 +126,7 @@ func (c *Cache[T]) Value() T {
 // Delete is idempotent from the caller's perspective: deleting a missing cache
 // does not return an error, though a missing store may be logged at debug level.
 func (c *Cache[T]) Delete() {
-	deleteCache(c.storeKey, c.cacheKey)
+	deleteCache(c.runtime(), c.storeKey, c.cacheKey)
 }
 
 // CreatedAt returns the time recorded when this cache entry was first created.
@@ -162,12 +167,12 @@ func (c *Cache[T]) Expiry() time.Time {
 // the current cache state from the store.
 func (c *Cache[T]) Record(record bool) {
 	c.record = record
-	current, err := getCache[T](c.storeKey, c.cacheKey)
+	current, err := getCache[T](c.runtime(), c.storeKey, c.cacheKey)
 	if err != nil {
 		return
 	}
 	current.record = record
-	_ = saveCache(c.storeKey, c.cacheKey, current)
+	_ = saveCache(c.runtime(), c.storeKey, c.cacheKey, current)
 }
 
 // History returns the recorded cache values for this cache entry.
@@ -176,15 +181,22 @@ func (c *Cache[T]) Record(record bool) {
 // false when no history exists or when a stored history value cannot be asserted
 // back to T.
 func (c *Cache[T]) History() (map[string]T, bool) {
-	return cacheHistory[T](&cacheEvents, c.id())
+	return cacheHistory[T](&c.runtime().cacheEvents, c.id())
 }
 
 // id returns the stable identifier used by the event registry for this cache.
 //
 // The backing store is already split by client session ID, but callback and history
-// maps are global, so they need a combined client/key identifier.
+// maps are runtime-wide, so they need a combined client/key identifier.
 func (c *Cache[T]) id() string {
 	return cacheID(c.storeKey, c.cacheKey)
+}
+
+func (c *Cache[T]) runtime() *runtime {
+	if c == nil || c.rt == nil {
+		return defaultRuntime
+	}
+	return c.rt
 }
 
 // watchCacheExpiry deletes a cache entry if this specific update has expired.
@@ -192,14 +204,14 @@ func (c *Cache[T]) id() string {
 // Each Set call starts its own watcher. The updatedAt argument lets the watcher
 // detect stale goroutines: if another Set call updated the cache after this
 // watcher started, the watcher exits without deleting the newer value.
-func watchCacheExpiry[T any](storeKey, cacheKey string, updatedAt time.Time, timeOut time.Duration) {
+func watchCacheExpiry[T any](rt *runtime, storeKey, cacheKey string, updatedAt time.Time, timeOut time.Duration) {
 	if timeOut <= 0 {
 		return
 	}
 
 	time.Sleep(timeOut)
 
-	current, err := getCache[T](storeKey, cacheKey)
+	current, err := getCache[T](rt, storeKey, cacheKey)
 	if err != nil || !current.updatedAt.Equal(updatedAt) || time.Now().Before(current.Expiry()) {
 		return
 	}
@@ -226,19 +238,19 @@ func cacheDispatch(ctx context.Context) (dispatchDetails, error) {
 // It treats the optional timeout list as "last value wins", preserving a
 // previous timeout for explicit 0 values and clamping unsupported values back to
 // config.CacheTimeOut.
-func resolveCacheTimeout[T any](current Cache[T], timeout ...time.Duration) time.Duration {
+func resolveCacheTimeout[T any](rt *runtime, current Cache[T], timeout ...time.Duration) time.Duration {
 	if len(timeout) == 0 {
-		return config.CacheTimeOut
+		return rt.Config().CacheTimeOut
 	}
 
 	requested := timeout[len(timeout)-1]
 	if requested == 0 && current.timeOut > 0 {
 		return current.timeOut
 	}
-	if requested > 0 && requested < config.CacheTimeOut {
+	if requested > 0 && requested < rt.Config().CacheTimeOut {
 		return requested
 	}
-	return config.CacheTimeOut
+	return rt.Config().CacheTimeOut
 }
 
 // OnCacheTimeOut registers a callback to run when this cache entry expires.
@@ -247,7 +259,7 @@ func resolveCacheTimeout[T any](current Cache[T], timeout ...time.Duration) time
 // expiry watcher confirms the cache value is still the same update that started
 // the watcher.
 func OnCacheTimeOut[T any](c Cache[T], f func()) {
-	cacheEvents.setTimeout(c.id(), f)
+	c.runtime().cacheEvents.setTimeout(c.id(), f)
 }
 
 // OnCacheChange registers a callback to run after Set writes a cache value.
@@ -255,7 +267,7 @@ func OnCacheTimeOut[T any](c Cache[T], f func()) {
 // Updating metadata with helpers like Record uses saveCache and does not trigger
 // this callback. Only value-changing Set calls trigger OnCacheChange.
 func OnCacheChange[T any](c Cache[T], f func()) {
-	cacheEvents.setChange(c.id(), f)
+	c.runtime().cacheEvents.setChange(c.id(), f)
 }
 
 // callOnFn dispatches cache lifecycle callbacks for a specific cache value.
@@ -266,13 +278,11 @@ func OnCacheChange[T any](c Cache[T], f func()) {
 func callOnFn[T any](on CacheOnFn, c Cache[T]) {
 	switch on {
 	case onChange:
-		cacheEvents.callChange(c.id(), c.data, c.record)
+		c.runtime().cacheEvents.callChange(c.id(), c.data, c.record)
 	case onTimeOut:
-		cacheEvents.callTimeout(c.id())
+		c.runtime().cacheEvents.callTimeout(c.id())
 	}
 }
-
-var cacheEvents = newCacheEventRegistry()
 
 type cacheEventRegistry struct {
 	mu        sync.Mutex
@@ -283,8 +293,8 @@ type cacheEventRegistry struct {
 
 // newCacheEventRegistry creates the callback/history registry used by caches.
 //
-// Tests reset the global registry with this constructor so callbacks and history
-// do not leak across cases.
+// Tests and app runtimes use this constructor so callbacks and history do not
+// leak across cases or mounted Neith apps.
 func newCacheEventRegistry() cacheEventRegistry {
 	return cacheEventRegistry{
 		onchange:  make(map[string]func()),
@@ -390,8 +400,6 @@ func (r *cacheEventRegistry) recordHistory(id string, data any) {
 	r.history[id][time.Now().String()] = data
 }
 
-var sm = newStoreManager()
-
 type storeManager struct {
 	mu     sync.Mutex
 	stores map[string]*cacheStore
@@ -404,7 +412,7 @@ type cacheStore struct {
 
 // newStoreManager creates an empty manager for client-session cache stores.
 //
-// The global store manager is process-local; each store inside it is keyed by a
+// Each runtime's store manager keeps stores keyed by a
 // client session ID.
 func newStoreManager() storeManager {
 	return storeManager{
@@ -456,17 +464,17 @@ func (m *storeManager) delete(key string) {
 //
 // It intentionally routes through setCache so normal creation participates in
 // the same callback path as other writes.
-func createCache[T any](c Cache[T]) error {
-	sm.ensure(c.storeKey)
-	return setCache(c.storeKey, c.cacheKey, c)
+func createCache[T any](rt *runtime, c Cache[T]) error {
+	rt.stores.ensure(c.storeKey)
+	return setCache(rt, c.storeKey, c.cacheKey, c)
 }
 
 // setCache persists a cache value and emits the cache change event.
 //
 // Use saveCache when internal metadata needs to be saved without firing
 // OnCacheChange callbacks.
-func setCache[T any](storeKey string, cacheKey string, c Cache[T]) error {
-	if err := saveCache(storeKey, cacheKey, c); err != nil {
+func setCache[T any](rt *runtime, storeKey string, cacheKey string, c Cache[T]) error {
+	if err := saveCache(rt, storeKey, cacheKey, c); err != nil {
 		return err
 	}
 	callOnFn(onChange, c)
@@ -477,8 +485,8 @@ func setCache[T any](storeKey string, cacheKey string, c Cache[T]) error {
 //
 // This is used for internal metadata updates such as Record(true), where callers
 // expect the cache behavior to change but not for OnCacheChange to run.
-func saveCache[T any](storeKey string, cacheKey string, c Cache[T]) error {
-	store, ok := sm.get(storeKey)
+func saveCache[T any](rt *runtime, storeKey string, cacheKey string, c Cache[T]) error {
+	store, ok := rt.stores.get(storeKey)
 	if !ok {
 		return ErrStoreNotFound
 	}
@@ -491,8 +499,8 @@ func saveCache[T any](storeKey string, cacheKey string, c Cache[T]) error {
 //
 // Because the store holds values as any, getCache is the boundary that verifies
 // the requested generic type matches the stored cache type.
-func getCache[T any](storeKey string, cacheKey string) (Cache[T], error) {
-	store, ok := sm.get(storeKey)
+func getCache[T any](rt *runtime, storeKey string, cacheKey string) (Cache[T], error) {
+	store, ok := rt.stores.get(storeKey)
 	if !ok {
 		return Cache[T]{}, ErrCacheNotFound
 	}
@@ -506,6 +514,7 @@ func getCache[T any](storeKey string, cacheKey string) (Cache[T], error) {
 	if !ok {
 		return Cache[T]{}, ErrCacheWrongType
 	}
+	cache.rt = rt
 	return cache, nil
 }
 
@@ -513,10 +522,10 @@ func getCache[T any](storeKey string, cacheKey string) (Cache[T], error) {
 //
 // Missing stores are logged at debug level instead of returned as errors because
 // Delete is part of cleanup paths where repeated calls should be harmless.
-func deleteCache(storeKey string, cacheKey string) {
-	store, ok := sm.get(storeKey)
+func deleteCache(rt *runtime, storeKey string, cacheKey string) {
+	store, ok := rt.stores.get(storeKey)
 	if !ok {
-		config.Logger.Debug("could not delete cache, no such store", "storeKey", storeKey, "cacheKey", cacheKey)
+		rt.Config().Logger.Debug("could not delete cache, no such store", "storeKey", storeKey, "cacheKey", cacheKey)
 		return
 	}
 	store.delete(cacheKey)
