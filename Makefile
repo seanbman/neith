@@ -1,6 +1,10 @@
-.PHONY: templ example
+.PHONY: templ example example-debug
 
 VERSION = 0.4
+ESBUILD = ./es-build
+GOPATH_BIN = $(shell go env GOPATH)/bin
+DLV ?= $(GOPATH_BIN)/dlv
+DEBUG_PORT ?= 40000
 
 make:
 	go run .
@@ -12,18 +16,22 @@ test:
 example:
 	cd examples/readme-setup && go run .
 
+example-debug:
+	@command -v $(DLV) >/dev/null || (echo "Delve is required. Install it with: go install github.com/go-delve/delve/cmd/dlv@latest" && exit 1)
+	cd examples/readme-setup && $(DLV) debug . --headless --listen=:$(DEBUG_PORT) --api-version=2 --accept-multiclient
+
 coverage:
 	go test ./... -v -coverprofile=cover.out
 	go tool cover -html=coverage.out
 
 assets: templ
 	tsc -p "static/assets/"
-	./es-build
+	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/index.min.js
 	./tailwindcss -i static/assets/stylesheets/tailwind.css -o static/assets/stylesheets/tailwind.min.css --minify
 	sass static/assets/sass:static/assets/stylesheets
 
 bundle:
-	./esbuild static/assets/index.ts --bundle --minify --outfile=static/assets/fcmp.min.js
+	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/index.min.js
 
 templ:
 	/Users/seanburman/go/bin/templ generate

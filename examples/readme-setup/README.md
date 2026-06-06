@@ -22,6 +22,28 @@ go mod tidy
 go run .
 ```
 
+Run it in debug mode from the repo root with VS Code's `Debug README Example`
+launch configuration, or start a headless Delve server:
+
+```sh
+make example-debug
+```
+
+Then attach with VS Code's `Attach README Example` launch configuration. The
+default debug port is `40000`; override it with
+`DEBUG_PORT=40001 make example-debug`. The debug target requires Delve:
+
+```sh
+go install github.com/go-delve/delve/cmd/dlv@latest
+```
+
+If `dlv` still is not found after install, add Go's bin directory to your shell:
+
+```sh
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
+source ~/.bashrc
+```
+
 Then open:
 
 ```text

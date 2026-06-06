@@ -15,10 +15,7 @@ import (
 	"github.com/snburman/fcmp"
 )
 
-const (
-	updatesCacheKey = "admin_updates"
-	maxRows         = 10
-)
+const updatesCacheKey = "admin_updates"
 
 type adminUpdate struct {
 	ID         int
@@ -98,9 +95,6 @@ func appendUpdate(ctx context.Context, update adminUpdate) error {
 	rows := updates.Value()
 	update.ID = nextID(rows)
 	rows = append([]adminUpdate{update}, rows...)
-	if len(rows) > maxRows {
-		rows = rows[:maxRows]
-	}
 	if err := updates.Set(rows); err != nil {
 		return err
 	}
@@ -160,7 +154,6 @@ func dashboard(ctx context.Context, notice string) fcmp.HTML {
 	b.WriteString(`<div class="metrics">`)
 	b.WriteString(metric("Cached rows", len(rows)))
 	b.WriteString(metric("History snapshots", len(history)))
-	b.WriteString(metric("Max retained rows", maxRows))
 	b.WriteString(`</div>`)
 
 	b.WriteString(updateForm())

@@ -158,7 +158,9 @@ type, such as `fcmp.PointerEvent`, `fcmp.DragEvent`, or your own form-data struc
 
 Event targets include the element ID, name, classes, tag name, HTML, value, checked,
 disabled, hidden, inline style, attributes, dataset, and selected option values. For
-submit events, `EventSubmitter` returns the button or input that submitted the form.
+mouse, pointer, drag, and keyboard payloads, `target` is the element that caused the
+event and `currentTarget` is the fcmp wrapper listening for it. For submit events,
+`EventSubmitter` returns the button or input that submitted the form.
 
 ```go
 func save(ctx context.Context) fcmp.FnComponent {
@@ -337,6 +339,28 @@ Run it from the repo root:
 
 ```sh
 make example
+```
+
+Run it in debug mode from VS Code with the `Debug README Example` launch
+configuration, or start a headless Delve server from the repo root:
+
+```sh
+make example-debug
+```
+
+Then attach with the `Attach README Example` launch configuration. The default
+debug port is `40000`; override it with `DEBUG_PORT=40001 make example-debug`.
+The debug target requires Delve:
+
+```sh
+go install github.com/go-delve/delve/cmd/dlv@latest
+```
+
+If `dlv` still is not found after install, add Go's bin directory to your shell:
+
+```sh
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 Or run it from the example folder:

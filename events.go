@@ -250,6 +250,7 @@ type PointerEvent struct {
 	PointerType      string      `json:"pointerType"`
 	Pressure         int         `json:"pressure"`
 	RelatedTarget    EventTarget `json:"relatedTarget"`
+	Target           EventTarget `json:"target"`
 }
 
 type TouchEvent struct {
@@ -299,6 +300,7 @@ type DragEvent struct {
 	PageX            int         `json:"pageX"`
 	PageY            int         `json:"pageY"`
 	RelatedTarget    EventTarget `json:"relatedTarget"`
+	Target           EventTarget `json:"target"`
 }
 
 type MouseEvent struct {
@@ -324,6 +326,7 @@ type MouseEvent struct {
 	PageX            int         `json:"pageX"`
 	PageY            int         `json:"pageY"`
 	RelatedTarget    EventTarget `json:"relatedTarget"`
+	Target           EventTarget `json:"target"`
 }
 
 type KeyboardEvent struct {
@@ -344,6 +347,7 @@ type KeyboardEvent struct {
 	MetaKey          bool        `json:"metaKey"`
 	Repeat           bool        `json:"repeat"`
 	ShiftKey         bool        `json:"shiftKey"`
+	Target           EventTarget `json:"target"`
 }
 
 type FormDataEvent struct {

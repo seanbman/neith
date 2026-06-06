@@ -1,12 +1,28 @@
 import type { EventTargetData, Upload } from "./fcmp_types";
 import { formValues, uploadFormFiles } from "./uploads";
 
+/**
+ * Normalized result returned by every event parser.
+ *
+ * `data` is the JSON-safe event payload sent to Go through EventData.
+ * `uploads` contains file metadata produced by the HTTP upload endpoint.
+ * `submitter` is populated for form submit events when the browser exposes the
+ * button or input that submitted the form.
+ */
 export type ParsedEventData = {
     data: Object | null;
     uploads: Upload[];
     submitter?: ReturnType<typeof parseEventTarget>;
 };
 
+/**
+ * Converts a browser Event into the fcmp event payload sent to Go.
+ *
+ * The event name comes from the server-provided listener metadata. It lets the
+ * parser choose a smaller, explicit payload shape instead of trying to serialize
+ * the native browser Event object, which contains circular references and many
+ * non-JSON values.
+ */
 export function parseEventData(eventName: string, ev: Event) {
     if (["submit", "change"].includes(eventName)) {
         return parseFormData(ev);
@@ -29,6 +45,13 @@ export function parseEventData(eventName: string, ev: Event) {
     return withoutUploads(parseEventTarget(ev.target));
 }
 
+/**
+ * Builds event data for form-like events.
+ *
+ * Forms are special because file inputs need an HTTP upload before the websocket
+ * event is sent. Normal form fields are still returned as data, while uploaded
+ * files are represented by server-provided Upload metadata.
+ */
 async function parseFormData(ev: Event): Promise<ParsedEventData> {
     const form = getFormFromEvent(ev);
     if (!form) {
@@ -43,6 +66,12 @@ async function parseFormData(ev: Event): Promise<ParsedEventData> {
     };
 }
 
+/**
+ * Finds the form associated with a submit or change event.
+ *
+ * Submit events usually target the form itself. Change events may target a child
+ * input, so this falls back to closest("form") when possible.
+ */
 function getFormFromEvent(ev: Event): HTMLFormElement | null {
     const target = ev.target;
     if (isFormElement(target)) {
@@ -54,12 +83,22 @@ function getFormFromEvent(ev: Event): HTMLFormElement | null {
     return null;
 }
 
+/**
+ * Type guard for DOM targets that are real HTMLFormElement instances.
+ */
 function isFormElement(target: EventTarget | null): target is HTMLFormElement {
     return !!target &&
         "tagName" in target &&
         (target as HTMLFormElement).tagName === "FORM";
 }
 
+/**
+ * Captures a JSON-safe snapshot of a DOM event target.
+ *
+ * Native EventTarget objects are not serializable. This snapshot keeps the
+ * useful parts a Go handler usually needs: identity, form values, classes,
+ * attributes, dataset entries, and selected option values.
+ */
 export function parseEventTarget(ev: any): EventTargetData | null {
     if (!ev) return null;
     return {
@@ -80,6 +119,9 @@ export function parseEventTarget(ev: any): EventTargetData | null {
     };
 }
 
+/**
+ * Wraps non-form event data in the common ParsedEventData shape.
+ */
 function withoutUploads(data: Object | null): ParsedEventData {
     return {
         data,
@@ -87,10 +129,16 @@ function withoutUploads(data: Object | null): ParsedEventData {
     };
 }
 
+/**
+ * Returns the button or input that submitted a form, when the browser exposes it.
+ */
 function getSubmitterElement(ev: Event) {
     return (ev as SubmitEvent).submitter || null;
 }
 
+/**
+ * Extracts the fields fcmp preserves from PointerEvent.
+ */
 function parsePointerEvent(ev: PointerEvent): PointerEventProperties {
     return {
         isTrusted: ev.isTrusted,
@@ -120,9 +168,16 @@ function parsePointerEvent(ev: PointerEvent): PointerEventProperties {
         pointerType: ev.pointerType,
         pressure: ev.pressure,
         relatedTarget: parseEventTarget(ev.relatedTarget),
+        target: parseEventTarget(ev.target),
     };
 }
 
+/**
+ * Extracts touch lists and coordinates from TouchEvent.
+ *
+ * TouchEvent objects contain TouchList collections. Converting them to arrays
+ * keeps the payload JSON-safe and easy for Go to unmarshal.
+ */
 function parseTouchEvent(ev: TouchEvent & { layerX: number; layerY: number; pageX: number; pageY: number }): TouchEventProperties & { layerX: number; layerY: number; pageX: number; pageY: number } {
     return {
         changedTouches: Array.from(ev.changedTouches).map((t) => parseTouch(t)),
@@ -135,6 +190,9 @@ function parseTouchEvent(ev: TouchEvent & { layerX: number; layerY: number; page
     };
 }
 
+/**
+ * Extracts one serializable touch point from a browser Touch object.
+ */
 function parseTouch(ev: Touch): TouchProperties {
     return {
         clientX: ev.clientX,
@@ -151,6 +209,9 @@ function parseTouch(ev: Touch): TouchProperties {
     };
 }
 
+/**
+ * Extracts the fields fcmp preserves from DragEvent.
+ */
 function parseDragEvent(ev: DragEvent): DragEventProperties {
     return {
         isTrusted: ev.isTrusted,
@@ -175,9 +236,13 @@ function parseDragEvent(ev: DragEvent): DragEventProperties {
         pageX: ev.pageX,
         pageY: ev.pageY,
         relatedTarget: parseEventTarget(ev.relatedTarget),
+        target: parseEventTarget(ev.target),
     };
 }
 
+/**
+ * Extracts the fields fcmp preserves from MouseEvent.
+ */
 function parseMouseEvent(ev: MouseEvent): MouseEventProperties {
     return {
         isTrusted: ev.isTrusted,
@@ -202,9 +267,13 @@ function parseMouseEvent(ev: MouseEvent): MouseEventProperties {
         pageX: ev.pageX,
         pageY: ev.pageY,
         relatedTarget: parseEventTarget(ev.relatedTarget),
+        target: parseEventTarget(ev.target),
     };
 }
 
+/**
+ * Extracts the fields fcmp preserves from KeyboardEvent.
+ */
 function parseKeyboardEvent(ev: KeyboardEvent): KeyboardEventProperties {
     return {
         isTrusted: ev.isTrusted,
@@ -224,9 +293,13 @@ function parseKeyboardEvent(ev: KeyboardEvent): KeyboardEventProperties {
         metaKey: ev.metaKey,
         repeat: ev.repeat,
         shiftKey: ev.shiftKey,
+        target: parseEventTarget(ev.target),
     };
 }
 
+/**
+ * JSON shape used by Go's PointerEvent struct.
+ */
 type PointerEventProperties = {
     isTrusted: boolean;
     altKey: boolean;
@@ -255,8 +328,12 @@ type PointerEventProperties = {
     pointerType: string;
     pressure: number;
     relatedTarget: EventTargetData | null;
+    target: EventTargetData | null;
 };
 
+/**
+ * JSON shape used by Go's TouchEvent struct.
+ */
 type TouchEventProperties = {
     changedTouches: TouchProperties[];
     targetTouches: TouchProperties[];
@@ -267,6 +344,9 @@ type TouchEventProperties = {
     pageY: number;
 };
 
+/**
+ * JSON shape used by Go's Touch struct.
+ */
 type TouchProperties = {
     clientX: number;
     clientY: number;
@@ -281,6 +361,9 @@ type TouchProperties = {
     target: EventTargetData | null;
 };
 
+/**
+ * JSON shape used by Go's DragEvent struct.
+ */
 type DragEventProperties = {
     isTrusted: boolean;
     altKey: boolean;
@@ -304,8 +387,12 @@ type DragEventProperties = {
     pageX: number;
     pageY: number;
     relatedTarget: EventTargetData | null;
+    target: EventTargetData | null;
 };
 
+/**
+ * JSON shape used by Go's MouseEvent struct.
+ */
 type MouseEventProperties = {
     isTrusted: boolean;
     altKey: boolean;
@@ -329,8 +416,12 @@ type MouseEventProperties = {
     pageX: number;
     pageY: number;
     relatedTarget: EventTargetData | null;
+    target: EventTargetData | null;
 };
 
+/**
+ * JSON shape used by Go's KeyboardEvent struct.
+ */
 type KeyboardEventProperties = {
     isTrusted: boolean;
     altKey: boolean;
@@ -349,4 +440,5 @@ type KeyboardEventProperties = {
     metaKey: boolean;
     repeat: boolean;
     shiftKey: boolean;
+    target: EventTargetData | null;
 };

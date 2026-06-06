@@ -204,12 +204,140 @@ describe("test websocket functions", () => {
         await waitCallback(() => dispatches.length > 0);
 
         const currentTarget = (dispatches[0].event.data as any).currentTarget;
-        expect(currentTarget.id).toEqual("rich-button");
-        expect(currentTarget.name).toEqual("status");
-        expect(currentTarget.classList).toEqual(["primary", "important"]);
-        expect(currentTarget.dataset).toEqual(["role=admin"]);
-        expect(currentTarget.disabled).toEqual(false);
-        expect(currentTarget.attributes).toContain("value=open");
+        const target = (dispatches[0].event.data as any).target;
+        expect(currentTarget.id).toEqual("rich-target");
+        expect(target.id).toEqual("rich-button");
+        expect(target.name).toEqual("status");
+        expect(target.classList).toEqual(["primary", "important"]);
+        expect(target.dataset).toEqual(["role=admin"]);
+        expect(target.disabled).toEqual(false);
+        expect(target.attributes).toContain("value=open");
+    });
+
+    test("test keyboard event target metadata", async () => {
+        const event = {
+            id: "keyboard-event",
+            target_id: "keyboard-target",
+            on: "keydown",
+            action: "test",
+            method: "GET",
+            form_data: "",
+            data: {},
+        };
+        server.send({
+            function: Fun.RENDER,
+            render: {
+                tag: "main",
+                html: `<div id="${event.target_id}" events=[${JSON.stringify(event)}]><input id="keyboard-input" name="search" value="pipe"></div>`,
+                append: true,
+            },
+        });
+
+        await waitCallback(() => document.getElementById("keyboard-input") !== null);
+        const keydown = new document.defaultView!.KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            key: "Enter",
+            code: "Enter",
+        });
+        document.getElementById("keyboard-input")?.dispatchEvent(keydown);
+        await waitCallback(() => dispatches.length > 0);
+
+        const data = dispatches[0].event.data as any;
+        expect(data.key).toEqual("Enter");
+        expect(data.code).toEqual("Enter");
+        expect(data.currentTarget.id).toEqual("keyboard-target");
+        expect(data.target.id).toEqual("keyboard-input");
+        expect(data.target.value).toEqual("pipe");
+    });
+
+    test("test drag event target metadata", async () => {
+        const event = {
+            id: "drag-event",
+            target_id: "drag-target",
+            on: "dragstart",
+            action: "test",
+            method: "GET",
+            form_data: "",
+            data: {},
+        };
+        server.send({
+            function: Fun.RENDER,
+            render: {
+                tag: "main",
+                html: `<div id="${event.target_id}" events=[${JSON.stringify(event)}]><button id="drag-button" draggable="true">Drag</button></div>`,
+                append: true,
+            },
+        });
+
+        await waitCallback(() => document.getElementById("drag-button") !== null);
+        const dragstart = new document.defaultView!.MouseEvent("dragstart", {
+            bubbles: true,
+            cancelable: true,
+            clientX: 10,
+            clientY: 20,
+        });
+        document.getElementById("drag-button")?.dispatchEvent(dragstart);
+        await waitCallback(() => dispatches.length > 0);
+
+        const data = dispatches[0].event.data as any;
+        expect(data.clientX).toEqual(10);
+        expect(data.clientY).toEqual(20);
+        expect(data.currentTarget.id).toEqual("drag-target");
+        expect(data.target.id).toEqual("drag-button");
+    });
+
+    test("test touch event target metadata", async () => {
+        const event = {
+            id: "touch-event",
+            target_id: "touch-target",
+            on: "touchstart",
+            action: "test",
+            method: "GET",
+            form_data: "",
+            data: {},
+        };
+        server.send({
+            function: Fun.RENDER,
+            render: {
+                tag: "main",
+                html: `<div id="${event.target_id}" events=[${JSON.stringify(event)}]><button id="touch-button">Touch</button></div>`,
+                append: true,
+            },
+        });
+
+        await waitCallback(() => document.getElementById("touch-button") !== null);
+        const touchButton = document.getElementById("touch-button") as HTMLButtonElement;
+        const touch = {
+            clientX: 11,
+            clientY: 22,
+            identifier: 1,
+            pageX: 33,
+            pageY: 44,
+            radiusX: 5,
+            radiusY: 6,
+            rotationAngle: 0,
+            screenX: 55,
+            screenY: 66,
+            target: touchButton,
+        };
+        const touchstart = new document.defaultView!.Event("touchstart", { bubbles: true, cancelable: true });
+        Object.defineProperties(touchstart, {
+            changedTouches: { value: [touch] },
+            targetTouches: { value: [touch] },
+            touches: { value: [touch] },
+            layerX: { value: 1 },
+            layerY: { value: 2 },
+            pageX: { value: 33 },
+            pageY: { value: 44 },
+        });
+        touchButton.dispatchEvent(touchstart);
+        await waitCallback(() => dispatches.length > 0);
+
+        const data = dispatches[0].event.data as any;
+        expect(data.changedTouches[0].target.id).toEqual("touch-button");
+        expect(data.touches[0].clientX).toEqual(11);
+        expect(data.layerX).toEqual(1);
     });
 
     test("test form submitter metadata", async () => {
@@ -297,6 +425,40 @@ describe("test websocket functions", () => {
         offAfterRender();
         offBeforeEvent();
         offAfterEvent();
+    });
+
+    test("test socket reconnects after unexpected disconnect", async () => {
+        const jsdom = new JSDOM(
+            "<!DOCTYPE html><html><body></body></html>",
+            { url: "http://localhost/reconnect-test" }
+        );
+        (global as any).window = jsdom.window;
+
+        const seen: string[] = [];
+        const offConnect = onHook("connect", () => seen.push("connect"));
+        const offDisconnect = onHook("disconnect", () => seen.push("disconnect"));
+        const offReconnect = onHook("reconnect", () => seen.push("reconnect"));
+
+        let reconnectServer = new WS("ws://localhost:1235", { jsonProtocol: true });
+        const reconnectSocket = new Socket("ws://localhost:1235");
+        await reconnectServer.connected;
+        await waitCallback(() => seen.includes("connect"));
+
+        reconnectServer.error({ wasClean: false, code: 1003, reason: "boom" });
+        await reconnectServer.closed;
+
+        reconnectServer = new WS("ws://localhost:1235", { jsonProtocol: true });
+        await reconnectServer.connected;
+        await waitCallback(() => seen.includes("reconnect"));
+
+        expect(reconnectSocket).toBeDefined();
+        expect(seen).toEqual(["connect", "disconnect", "reconnect"]);
+
+        reconnectServer.close({ wasClean: true, code: 1000, reason: "done" });
+        await reconnectServer.closed;
+        offConnect();
+        offDisconnect();
+        offReconnect();
     });
 
     test("test file upload event metadata", async () => {
