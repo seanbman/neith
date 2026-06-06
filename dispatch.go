@@ -6,6 +6,7 @@ import "encoding/json"
 type functionName string
 
 const (
+	auth     functionName = "auth"
 	ping     functionName = "ping"
 	render   functionName = "render"
 	class    functionName = "class"
@@ -19,7 +20,6 @@ const (
 func newDispatch(key string) *Dispatch {
 	return &Dispatch{
 		Key: key,
-		rt:  defaultRuntime,
 	}
 }
 
@@ -30,7 +30,6 @@ func newDispatch(key string) *Dispatch {
 type Dispatch struct {
 	buf        []byte        `json:"-"`
 	conn       *conn         `json:"-"`
-	rt         *runtime      `json:"-"`
 	ID         string        `json:"id"`
 	Key        string        `json:"key"`
 	ConnID     string        `json:"conn_id"`

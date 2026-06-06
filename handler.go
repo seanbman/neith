@@ -11,15 +11,13 @@ import (
 	"github.com/google/uuid"
 )
 
+var handlers = handlerPool{
+	pool: make(map[string]handler),
+}
+
 type handlerPool struct {
 	mu   sync.Mutex
 	pool map[string]handler
-}
-
-func newHandlerPool() handlerPool {
-	return handlerPool{
-		pool: make(map[string]handler),
-	}
 }
 
 func (h *handlerPool) Get(id string) (handler, bool) {
@@ -45,34 +43,21 @@ type HandleFn func(context.Context) FnComponent
 
 type handler struct {
 	http.Handler
-	rt        *runtime
 	id        string
 	in        chan Dispatch
 	out       chan FnComponent
 	handlesFn map[string]HandleFn
 }
 
-func (r *runtime) newHandler() *handler {
+func newHandler() *handler {
 	handler := handler{
-		rt:        r,
 		id:        uuid.New().String(),
 		in:        make(chan Dispatch, 256),
 		out:       make(chan FnComponent, 256),
 		handlesFn: make(map[string]HandleFn),
 	}
-	r.handlers.Set(handler.id, handler)
+	handlers.Set(handler.id, handler)
 	return &handler
-}
-
-func newHandler() *handler {
-	return defaultRuntime.newHandler()
-}
-
-func (h handler) runtime() *runtime {
-	if h.rt == nil {
-		return defaultRuntime
-	}
-	return h.rt
 }
 
 func (h handler) ID() string {
@@ -173,7 +158,7 @@ func (h handler) Redirect(fn FnComponent) {
 }
 
 func (h handler) CustomIn(d Dispatch) {
-	h.runtime().Config().Logger.Debug("custom function in", d.FnCustom.Function+" result", d.FnCustom.Result)
+	config.Logger.Debug("custom function in", d.FnCustom.Function+" result", d.FnCustom.Result)
 }
 
 func (h handler) CustomOut(fn FnComponent) {
@@ -204,7 +189,7 @@ func (h handler) Event(d Dispatch) {
 		h.Error(d)
 		return
 	}
-	listener, ok := h.rt.eventListeners.Get(d.FnEvent.ID, d.conn)
+	listener, ok := evtListeners.Get(d.FnEvent.ID, d.conn)
 	if !ok {
 		d.FnError.Message = fmt.Sprintf("event listener with id '%s' not found", d.FnEvent.ID)
 		h.Error(d)
@@ -217,16 +202,15 @@ func (h handler) Event(d Dispatch) {
 	ctx := context.WithValue(listener.Context, EventKey, listener)
 	response := listener.Handler(ctx)
 	response.dispatch.conn = d.conn
-	response.dispatch.rt = h.runtime()
 	response.dispatch.HandlerID = d.HandlerID
 	h.out <- response
 }
 
 func (h handler) Error(d Dispatch) {
-	if h.runtime().Config().Silent {
+	if config.Silent {
 		return
 	}
-	h.runtime().Config().Logger.Error(d.FnError)
+	config.Logger.Error(d.FnError)
 }
 
 func (h handler) pingConnection(c *conn, d Dispatch) {
@@ -261,8 +245,7 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 }
 
 func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
-	rt := newRuntime(config)
-	handler := rt.newHandler()
+	handler := newHandler()
 	handler.listen()
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -277,10 +260,10 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 			w.Write(writer.buf)
 			return
 		}
-		newConnection, err := rt.newConn(w, r, handler.id, clientID)
+		newConnection, err := newConn(w, r, handler.id, clientID)
 		if err != nil {
-			rt.Config().Logger.Error(ErrConnectionFailed)
-			rt.Config().Logger.Error(err)
+			config.Logger.Error(ErrConnectionFailed)
+			config.Logger.Error(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(ErrConnectionFailed))
 			return
@@ -288,7 +271,6 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 		newConnection.HandlerID = handler.id
 
 		ctx := context.WithValue(r.Context(), dispatchKey, dispatchDetails{
-			Runtime:   rt,
 			ClientID:  clientID,
 			Conn:      newConnection,
 			HandlerID: handler.id,
@@ -298,13 +280,11 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 		// Send initial fn to client
 		fn := hf(ctx)
 		fn.dispatch.conn = newConnection
-		fn.dispatch.rt = rt
 		fn.dispatch.ConnID = clientID
 		fn.dispatch.HandlerID = handler.id
 		handler.out <- fn
 
 		pinger := newDispatch(clientID)
-		pinger.rt = rt
 		pinger.Function = ping
 		pinger.FnPing.Server = true
 		pinger.conn = newConnection

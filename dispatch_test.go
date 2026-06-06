@@ -44,7 +44,7 @@ func TestFnRenderListenerStrings(t *testing.T) {
 		EventListeners: []EventListener{{
 			ID:       "listener-1",
 			TargetID: "button-1",
-			On:       EventClick,
+			On:       OnClick,
 		}},
 	}
 

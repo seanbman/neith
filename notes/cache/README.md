@@ -1,31 +1,11 @@
 # Cache
 
-The cache API stores typed, per-client-session state. A cache entry belongs to
-the current browser client inside the current Neith app runtime, which means two
-visitors can use the same cache key without sharing values. Two routes wrapped
-with `neith.MiddleWareFn` also get isolated runtimes and cache stores.
+The cache API stores typed, per-client state. A cache entry belongs to the
+current Neith connection, which means two browser clients can use the same cache
+key without sharing values.
 
 Cache functions must be called with a context created by `neith.MiddleWareFn`.
-That context contains the client session ID and runtime used to choose the right
-cache store.
-
-## Table Of Contents
-
-- [Basic Flow](#basic-flow)
-- [`NewCache[T](ctx, key, initial)`](#newcachetctx-key-initial)
-- [`UseCache[T](ctx, key)`](#usecachetctx-key)
-- [`Set(value, timeout...)`](#setvalue-timeout)
-- [`Value()`](#value)
-- [`Delete()`](#delete)
-- [`CreatedAt()`](#createdat)
-- [`UpdatedAt()`](#updatedat)
-- [`TimeOut()`](#timeout)
-- [`Expiry()`](#expiry)
-- [`Record(true)`](#recordtrue)
-- [`History()`](#history)
-- [`OnCacheChange(cache, fn)`](#oncachechangecache-fn)
-- [`OnCacheTimeOut(cache, fn)`](#oncachetimeoutcache-fn)
-- [Internal Flow](#internal-flow)
+That context contains the connection ID used to choose the right cache store.
 
 ## Basic Flow
 
@@ -52,13 +32,13 @@ func counter(ctx context.Context) neith.FnComponent {
 		count.Value(),
 	))).WithEvents(func(ctx context.Context) neith.FnComponent {
 		return counter(ctx)
-	}, neith.EventClick)
+	}, neith.OnClick)
 }
 ```
 
 ## `NewCache[T](ctx, key, initial)`
 
-Creates a typed cache entry for the current client session.
+Creates a typed cache entry for the current connection.
 
 ```go
 cache, err := neith.NewCache(ctx, "user", User{Name: "Sean"})
@@ -70,7 +50,7 @@ if err != nil {
 Notes:
 
 - `T` is inferred from `initial`.
-- The key is scoped to the current browser client session and app runtime.
+- The key is scoped to the current browser connection.
 - Returns `ErrCtxMissingDispatch` if `ctx` was not created by Neith middleware.
 - Returns `ErrCacheExists` if the key already exists, even if the existing value
   has a different type.
@@ -86,7 +66,7 @@ if err != nil && !errors.Is(err, neith.ErrCacheExists) {
 
 ## `UseCache[T](ctx, key)`
 
-Retrieves a typed cache entry for the current client session.
+Retrieves a typed cache entry for the current connection.
 
 ```go
 count, err := neith.UseCache[int](ctx, "count")
@@ -152,7 +132,7 @@ Notes:
 
 ## `Delete()`
 
-Removes the cache entry from the current client-session store.
+Removes the cache entry from the current connection store.
 
 ```go
 cache.Delete()
@@ -263,7 +243,7 @@ neith.OnCacheChange(cache, func() {
 
 Notes:
 
-- The callback is tied to the cache's client session, runtime, and key.
+- The callback is tied to the cache's connection and key.
 - A later registration replaces the previous callback.
 - Metadata updates like `Record(true)` do not trigger this callback.
 
@@ -289,7 +269,7 @@ Notes:
 NewCache / UseCache
         |
         v
-context dispatch details -> runtime + client session ID -> cache store
+context dispatch details -> connection ID -> cache store
 
 Set(value)
         |

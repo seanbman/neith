@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-templ dashboard(notice string, rows []adminUpdate, history map[string][]adminUpdate, form templ.Component) {
+templ dashboard(notice string, rows []adminUpdate, history map[string][]adminUpdate) {
 	<section class="dashboard">
 		<header class="dashboard__header">
 			<div>
@@ -19,7 +19,7 @@ templ dashboard(notice string, rows []adminUpdate, history map[string][]adminUpd
 			@metric("Cached rows", len(rows))
 			@metric("History snapshots", len(history))
 		</div>
-		@form
+		@updateForm()
 		@updateTable(rows)
 		@recordWindow(rows)
 		@historyWindow(history)
@@ -38,6 +38,29 @@ templ metric(label string, value int) {
 		<strong>{ fmt.Sprintf("%d", value) }</strong>
 		<span>{ label }</span>
 	</article>
+}
+
+templ updateForm() {
+	<form class="update-form">
+		<input type="hidden" name="intent" value="add"/>
+		<label>
+			<span>Source</span>
+			<input name="source" value="Billing service"/>
+		</label>
+		<label>
+			<span>Status</span>
+			<select name="status">
+				<option value="ok">ok</option>
+				<option value="queued">queued</option>
+				<option value="warning">warning</option>
+			</select>
+		</label>
+		<label class="message-field">
+			<span>Message</span>
+			<input name="message" value="Invoice reconciliation completed"/>
+		</label>
+		<button type="submit">Add update</button>
+	</form>
 }
 
 templ updateTable(rows []adminUpdate) {

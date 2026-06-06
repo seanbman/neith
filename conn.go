@@ -12,7 +12,6 @@ import (
 
 type (
 	conn struct {
-		rt        *runtime
 		websocket *websocket.Conn
 		session   *clientSession
 		closeOnce sync.Once
@@ -25,26 +24,25 @@ type (
 	}
 )
 
-func (r *runtime) newConn(w http.ResponseWriter, req *http.Request, handlerID string, clientID string) (*conn, error) {
+func newConn(w http.ResponseWriter, r *http.Request, handlerID string, clientID string) (*conn, error) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
 	}
-	websocket, err := upgrader.Upgrade(w, req, nil)
+	websocket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil, errors.New("failed to upgrade connection")
 	}
 
 	c := &conn{
-		rt:        r,
 		websocket: websocket,
 		done:      make(chan struct{}),
 		ClientID:  clientID,
 		HandlerID: handlerID,
 		Messages:  make(chan []byte, 16),
 	}
-	session, previous := r.sessions.Attach(clientID, c)
+	session, previous := clientSessions.Attach(clientID, c)
 	c.session = session
 	if previous != nil && previous != c {
 		_ = previous.close()
@@ -58,38 +56,29 @@ func (c *conn) close() error {
 	}
 
 	c.closeOnce.Do(func() {
-		rt := c.runtime()
 		if c.done != nil {
 			close(c.done)
 		}
 
 		if c.ClientID != "" {
-			rt.eventListeners.Delete(c)
-			rt.sessions.Detach(c.ClientID, c)
+			evtListeners.Delete(c)
+			clientSessions.Detach(c.ClientID, c)
 			go c.cleanupCacheAfterTimeout()
 		}
 
 		if c.websocket != nil {
 			if err := c.websocket.Close(); err != nil {
-				rt.Config().Logger.Debug("error closing websocket", "error", err)
+				config.Logger.Debug("error closing websocket", "error", err)
 			}
 		}
 	})
 	return nil
 }
 
-func (c *conn) runtime() *runtime {
-	if c == nil || c.rt == nil {
-		return defaultRuntime
-	}
-	return c.rt
-}
-
 func (c *conn) cleanupCacheAfterTimeout() {
-	rt := c.runtime()
-	time.Sleep(rt.Config().CacheTimeOut)
-	if rt.sessions.DeleteIfInactive(c.ClientID) {
-		rt.stores.delete(c.ClientID)
+	time.Sleep(config.CacheTimeOut)
+	if clientSessions.DeleteIfInactive(c.ClientID) {
+		sm.delete(c.ClientID)
 	}
 }
 
@@ -105,25 +94,24 @@ func (c *conn) readLoop() {
 				websocket.CloseAbnormalClosure,
 				websocket.CloseNormalClosure,
 			) {
-				c.runtime().Config().Logger.Error("error reading websocket message", "error", err)
+				config.Logger.Error("error reading websocket message", "error", err)
 			}
 			return
 		}
 
 		var dispatch Dispatch
 		if err := json.Unmarshal(message, &dispatch); err != nil {
-			c.runtime().Config().Logger.Error("error decoding websocket dispatch", "error", err)
+			config.Logger.Error("error decoding websocket dispatch", "error", err)
 			continue
 		}
 
-		handler, ok := c.runtime().handlers.Get(dispatch.HandlerID)
+		handler, ok := handlers.Get(dispatch.HandlerID)
 		if !ok {
-			c.runtime().Config().Logger.Error("handler not found", "handler_id", dispatch.HandlerID)
+			config.Logger.Error("handler not found", "handler_id", dispatch.HandlerID)
 			continue
 		}
 
 		dispatch.conn = c
-		dispatch.rt = c.runtime()
 		select {
 		case <-c.done:
 			return
@@ -147,7 +135,7 @@ func (c *conn) writeLoop() {
 				return
 			}
 			if err := c.websocket.WriteMessage(1, msg); err != nil {
-				c.runtime().Config().Logger.Error("error writing message", "error", err)
+				config.Logger.Error("error writing message", "error", err)
 				c.close()
 				return
 			}
@@ -162,19 +150,19 @@ func (c *conn) listen() {
 
 func (c *conn) Publish(msg []byte) {
 	if c == nil {
-		defaultRuntime.Config().Logger.Warn("connection severed, message not sent")
+		config.Logger.Warn("connection severed, message not sent")
 		return
 	}
 	if c.Messages == nil {
-		c.runtime().Config().Logger.Warn("connection has no message queue, message not sent")
+		config.Logger.Warn("connection has no message queue, message not sent")
 		return
 	}
 	if _, err := json.Marshal(msg); err != nil {
-		c.runtime().Config().Logger.Error("message not json encodable", "error", err)
+		config.Logger.Error("message not json encodable", "error", err)
 		return
 	}
 
-	conn, _ := c.runtime().sessions.ActiveConn(c.ClientID)
+	conn, _ := clientSessions.ActiveConn(c.ClientID)
 	if conn != c {
 		return
 	}

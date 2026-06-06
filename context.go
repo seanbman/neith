@@ -17,7 +17,6 @@ const (
 )
 
 type dispatchDetails struct {
-	Runtime   *runtime
 	ClientID  string
 	Conn      *conn
 	HandlerID string

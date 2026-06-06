@@ -68,10 +68,9 @@ func NewFn(ctx context.Context, c Component) FnComponent {
 	id := "neith-" + uuid.New().String()
 
 	dispatch := newDispatch(id)
-	dispatch.rt = defaultRuntime
 	dd, ok := dispatchFromContext(ctx)
 	if !ok {
-		defaultRuntime.Config().Logger.Warn(ErrCtxMissingDispatch)
+		config.Logger.Warn(ErrCtxMissingDispatch)
 	} else {
 		dispatch.useContext(dd)
 	}
@@ -125,7 +124,7 @@ func (f FnComponent) WithContext(ctx context.Context) FnComponent {
 
 	dd, ok := dispatchFromContext(ctx)
 	if !ok {
-		f.dispatch.runtime().Config().Logger.Error(ErrCtxMissingDispatch)
+		config.Logger.Error(ErrCtxMissingDispatch)
 		return f
 	}
 	f.dispatch.useContext(dd)
@@ -342,12 +341,12 @@ func (f FnComponent) SwapElementInner(id string) FnComponent {
 // missing connection and returns without sending anything.
 func (f FnComponent) Dispatch() {
 	if f.dispatch.conn == nil {
-		f.dispatch.runtime().Config().Logger.Error(ErrConnectionNotFound)
+		config.Logger.Error(ErrConnectionNotFound)
 		return
 	}
-	h, ok := f.dispatch.runtime().handlers.Get(f.dispatch.HandlerID)
+	h, ok := handlers.Get(f.dispatch.HandlerID)
 	if !ok {
-		f.dispatch.runtime().Config().Logger.Error("handler not found", "HandlerID", f.dispatch.HandlerID)
+		config.Logger.Error("handler not found", "HandlerID", f.dispatch.HandlerID)
 		return
 	}
 	h.out <- f
@@ -494,17 +493,9 @@ func (h *HTML) Write(p []byte) (n int, err error) {
 // websocket connection pointer assignment consistent. Dispatch.ConnID keeps the
 // existing wire-protocol field name.
 func (d *Dispatch) useContext(details dispatchDetails) {
-	d.rt = runtimeFromDispatch(details)
 	d.ConnID = details.ClientID
 	d.HandlerID = details.HandlerID
 	d.conn = details.Conn
-}
-
-func (d *Dispatch) runtime() *runtime {
-	if d == nil || d.rt == nil {
-		return defaultRuntime
-	}
-	return d.rt
 }
 
 // applyMode translates a renderMode into the boolean flags sent to the client.

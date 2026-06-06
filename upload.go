@@ -21,14 +21,13 @@ func (h handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg := h.runtime().Config()
-	maxBytes := cfg.UploadMaxBytes
+	maxBytes := config.UploadMaxBytes
 	if maxBytes <= 0 {
 		maxBytes = 64 << 20
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 
-	maxMemory := cfg.UploadMaxMemory
+	maxMemory := config.UploadMaxMemory
 	if maxMemory <= 0 {
 		maxMemory = 32 << 20
 	}
@@ -37,7 +36,7 @@ func (h handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := saveUploadedFiles(r, cfg)
+	files, err := saveUploadedFiles(r)
 	if err != nil {
 		http.Error(w, "failed to save upload: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -47,12 +46,12 @@ func (h handler) Upload(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(uploadResponse{Files: files})
 }
 
-func saveUploadedFiles(r *http.Request, cfg *Config) ([]Upload, error) {
+func saveUploadedFiles(r *http.Request) ([]Upload, error) {
 	if r.MultipartForm == nil || len(r.MultipartForm.File) == 0 {
 		return nil, nil
 	}
 
-	dir := uploadDir(cfg)
+	dir := uploadDir()
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
@@ -98,9 +97,9 @@ func saveUploadedFiles(r *http.Request, cfg *Config) ([]Upload, error) {
 	return uploads, nil
 }
 
-func uploadDir(cfg *Config) string {
-	if cfg.UploadDir != "" {
-		return cfg.UploadDir
+func uploadDir() string {
+	if config.UploadDir != "" {
+		return config.UploadDir
 	}
 	return filepath.Join(os.TempDir(), "neith-uploads")
 }
