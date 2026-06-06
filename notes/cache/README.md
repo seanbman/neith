@@ -9,6 +9,24 @@ Cache functions must be called with a context created by `neith.MiddleWareFn`.
 That context contains the client session ID and runtime used to choose the right
 cache store.
 
+## Table Of Contents
+
+- [Basic Flow](#basic-flow)
+- [`NewCache[T](ctx, key, initial)`](#newcachetctx-key-initial)
+- [`UseCache[T](ctx, key)`](#usecachetctx-key)
+- [`Set(value, timeout...)`](#setvalue-timeout)
+- [`Value()`](#value)
+- [`Delete()`](#delete)
+- [`CreatedAt()`](#createdat)
+- [`UpdatedAt()`](#updatedat)
+- [`TimeOut()`](#timeout)
+- [`Expiry()`](#expiry)
+- [`Record(true)`](#recordtrue)
+- [`History()`](#history)
+- [`OnCacheChange(cache, fn)`](#oncachechangecache-fn)
+- [`OnCacheTimeOut(cache, fn)`](#oncachetimeoutcache-fn)
+- [Internal Flow](#internal-flow)
+
 ## Basic Flow
 
 ```go
@@ -34,7 +52,7 @@ func counter(ctx context.Context) neith.FnComponent {
 		count.Value(),
 	))).WithEvents(func(ctx context.Context) neith.FnComponent {
 		return counter(ctx)
-	}, neith.OnClick)
+	}, neith.EventClick)
 }
 ```
 

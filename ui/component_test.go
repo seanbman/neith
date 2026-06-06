@@ -39,7 +39,32 @@ func TestFormControlsRenderAttributesAndLabels(t *testing.T) {
 		Button("Save", Type("submit"), Disabled(true)),
 	))
 
-	want := `<form><label><span>Source</span><input id="source" name="source" required type="text" value="Billing &amp; invoices"></label><label><span>Status</span><select name="status"><option value="ok">ok</option><option value="queued">queued</option><option value="warning" selected>Needs attention</option></select></label><button disabled type="submit">Save</button></form>`
+	want := `<form class="n-form"><label><span>Source</span><input class="n-input" id="source" name="source" required type="text" value="Billing &amp; invoices"></label><label><span>Status</span><select class="n-select" name="status"><option value="ok">ok</option><option value="queued">queued</option><option value="warning" selected>Needs attention</option></select></label><button class="n-button" disabled type="submit">Save</button></form>`
+	if got != want {
+		t.Fatalf("unexpected render:\nwant %s\ngot  %s", want, got)
+	}
+}
+
+func TestAdditionalFormControls(t *testing.T) {
+	got := neith.RenderComponent(Form(
+		HiddenInput("intent", "add"),
+		TextArea("message", Label("Message"), Value("Invoice reconciliation completed")),
+		Button("Add update", Type("submit"), Primary()),
+	))
+
+	want := `<form class="n-form"><input class="n-input" name="intent" type="hidden" value="add"><label><span>Message</span><textarea class="n-textarea" name="message">Invoice reconciliation completed</textarea></label><button class="n-button n-button--primary" type="submit">Add update</button></form>`
+	if got != want {
+		t.Fatalf("unexpected render:\nwant %s\ngot  %s", want, got)
+	}
+}
+
+func TestTableRendersColumnsAndRows(t *testing.T) {
+	got := neith.RenderComponent(Table(
+		Columns("ID", "Status"),
+		TableRow("#001", Text("queued")),
+	))
+
+	want := `<table class="n-table"><thead><tr><th>ID</th><th>Status</th></tr></thead><tbody><tr><td>#001</td><td>queued</td></tr></tbody></table>`
 	if got != want {
 		t.Fatalf("unexpected render:\nwant %s\ngot  %s", want, got)
 	}
@@ -62,7 +87,7 @@ func TestCustomOptionCanUsePublicConfig(t *testing.T) {
 	}
 
 	got := neith.RenderComponent(Button("Delete", danger()))
-	want := `<button class="danger" data-tone="danger">Delete</button>`
+	want := `<button class="n-button danger" data-tone="danger">Delete</button>`
 	if got != want {
 		t.Fatalf("unexpected render:\nwant %s\ngot  %s", want, got)
 	}

@@ -4,13 +4,33 @@ The component API is the core of Neith's rendering model. A component renders
 HTML on the server, and `FnComponent` carries that HTML plus instructions for
 how the browser should apply it.
 
+## Table Of Contents
+
+- [Basic Flow](#basic-flow)
+- [`Component`](#component)
+- [`RenderComponent(components...)`](#rendercomponentcomponents)
+- [`HTML`](#html)
+- [`NewFn(ctx, component)`](#newfnctx-component)
+- [`FnComponent.Render(ctx, writer)`](#fncomponentrenderctx-writer)
+- [`FnComponent.Write(bytes)`](#fncomponentwritebytes)
+- [`WithContext(ctx)`](#withcontextctx)
+- [`WithEvents(handler, events...)`](#witheventshandler-events)
+- [`WithRedirect(url)`](#withredirecturl)
+- [`WithError(err)`](#witherrorerr)
+- [`JS(fn, arg)`](#jsfn-arg)
+- [`WithLabel(label)`](#withlabellabel)
+- [Render Target Methods](#render-target-methods)
+- [`Dispatch()`](#dispatch)
+- [Helper Functions](#helper-functions)
+- [Internal Flow](#internal-flow)
+
 ## Basic Flow
 
 ```go
 func app(ctx context.Context) neith.FnComponent {
 	return neith.NewFn(ctx, neith.HTML(`
 		<button>Click me</button>
-	`)).WithEvents(clicked, neith.OnClick)
+	`)).WithEvents(clicked, neith.EventClick)
 }
 
 func clicked(ctx context.Context) neith.FnComponent {
@@ -150,14 +170,14 @@ Attaches server-side handlers to browser DOM events.
 
 ```go
 return neith.NewFn(ctx, neith.HTML(`<button>Save</button>`)).
-	WithEvents(save, neith.OnClick)
+	WithEvents(save, neith.EventClick)
 ```
 
 Multiple events:
 
 ```go
 return neith.NewFn(ctx, input).
-	WithEvents(update, neith.OnInput, neith.OnChange)
+	WithEvents(update, neith.EventInput, neith.EventChange)
 ```
 
 Notes:

@@ -27,6 +27,56 @@ func On(event OnEvent, handler HandleFn, events ...OnEvent) ViewOption {
 	}
 }
 
+// OnSubmit attaches a submit event handler.
+func OnSubmit(handler HandleFn) ViewOption {
+	return On(EventSubmit, handler)
+}
+
+// OnClick attaches a click event handler.
+func OnClick(handler HandleFn) ViewOption {
+	return On(EventClick, handler)
+}
+
+// OnChange attaches a change event handler.
+func OnChange(handler HandleFn) ViewOption {
+	return On(EventChange, handler)
+}
+
+// OnInput attaches an input event handler.
+func OnInput(handler HandleFn) ViewOption {
+	return On(EventInput, handler)
+}
+
+// OnKeyDown attaches a keydown event handler.
+func OnKeyDown(handler HandleFn) ViewOption {
+	return On(EventKeyDown, handler)
+}
+
+// Submit attaches a submit event handler.
+func Submit(handler HandleFn) ViewOption {
+	return OnSubmit(handler)
+}
+
+// Click attaches a click event handler.
+func Click(handler HandleFn) ViewOption {
+	return OnClick(handler)
+}
+
+// Change attaches a change event handler.
+func Change(handler HandleFn) ViewOption {
+	return OnChange(handler)
+}
+
+// Input attaches an input event handler.
+func Input(handler HandleFn) ViewOption {
+	return OnInput(handler)
+}
+
+// KeyDown attaches a keydown event handler.
+func KeyDown(handler HandleFn) ViewOption {
+	return OnKeyDown(handler)
+}
+
 // Label assigns a human-readable debug label to the rendered wrapper.
 func Label(label string) ViewOption {
 	return func(f FnComponent) FnComponent {

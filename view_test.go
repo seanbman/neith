@@ -23,6 +23,18 @@ func TestViewAppliesOptions(t *testing.T) {
 	assertRenderMode(t, fn.dispatch.FnRender, renderInner)
 }
 
+func TestViewEventHelpers(t *testing.T) {
+	handler := func(ctx context.Context) FnComponent {
+		return View(ctx, HTML("ok"))
+	}
+
+	fn := View(context.Background(), nil, OnSubmit(handler), OnClick(handler))
+
+	if len(fn.dispatch.FnRender.EventListeners) != 0 {
+		t.Fatalf("expected no listeners outside dispatch context, got %d", len(fn.dispatch.FnRender.EventListeners))
+	}
+}
+
 func TestViewRenderTargetOptions(t *testing.T) {
 	cases := []struct {
 		name     string

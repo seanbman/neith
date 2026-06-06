@@ -33,12 +33,12 @@ coverage:
 
 assets: templ
 	tsc -p "static/assets/"
-	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/index.min.js
+	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/neith.min.js
 	./tailwindcss -i static/assets/stylesheets/tailwind.css -o static/assets/stylesheets/tailwind.min.css --minify
 	sass static/assets/sass:static/assets/stylesheets
 
 bundle:
-	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/index.min.js
+	$(ESBUILD) static/assets/index.ts --bundle --minify --outfile=static/assets/neith.min.js
 
 templ:
 	go run github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION) generate

@@ -21,15 +21,18 @@ type Config struct {
 }
 
 type element struct {
-	tag       string
-	attrs     map[string]string
-	boolAttrs map[string]bool
-	classes   []string
-	children  []neith.Component
-	text      string
-	label     string
-	choices   []Choice
-	void      bool
+	tag          string
+	attrs        map[string]string
+	boolAttrs    map[string]bool
+	classes      []string
+	children     []neith.Component
+	text         string
+	label        string
+	labelClasses []string
+	choices      []Choice
+	columns      []Column
+	rows         [][]neith.Component
+	void         bool
 }
 
 // Choice describes one select option.
@@ -38,6 +41,11 @@ type Choice struct {
 	Label    string
 	Selected bool
 	Disabled bool
+}
+
+// Column describes one table column.
+type Column struct {
+	Header string
 }
 
 // Element creates a generic HTML element component.
@@ -88,6 +96,7 @@ func Heading(value string, opts ...Option) neith.Component {
 // Form renders a form around child components.
 func Form(items ...any) neith.Component {
 	e := newElement("form")
+	e.classes = append(e.classes, "n-form")
 	e.apply(items...)
 	return e
 }
@@ -95,17 +104,32 @@ func Form(items ...any) neith.Component {
 // Button renders a button with escaped text.
 func Button(label string, opts ...Option) neith.Component {
 	e := newElement("button")
+	e.classes = append(e.classes, "n-button")
 	e.text = label
+	e.apply(optionsAsItems(opts)...)
+	return e
+}
+
+// HiddenInput renders a hidden input.
+func HiddenInput(name string, value string, opts ...Option) neith.Component {
+	e := newInput(name, "hidden")
+	e.attrs["value"] = value
 	e.apply(optionsAsItems(opts)...)
 	return e
 }
 
 // TextInput renders an input, wrapped in a label when Label is supplied.
 func TextInput(name string, opts ...Option) neith.Component {
-	e := newElement("input")
-	e.void = true
-	e.attrs["type"] = "text"
+	e := newInput(name, "text")
+	e.apply(optionsAsItems(opts)...)
+	return e
+}
+
+// TextArea renders a textarea, wrapped in a label when Label is supplied.
+func TextArea(name string, opts ...Option) neith.Component {
+	e := newElement("textarea")
 	e.attrs["name"] = name
+	e.classes = append(e.classes, "n-textarea")
 	e.apply(optionsAsItems(opts)...)
 	return e
 }
@@ -114,7 +138,16 @@ func TextInput(name string, opts ...Option) neith.Component {
 func Select(name string, opts ...Option) neith.Component {
 	e := newElement("select")
 	e.attrs["name"] = name
+	e.classes = append(e.classes, "n-select")
 	e.apply(optionsAsItems(opts)...)
+	return e
+}
+
+// Table renders a generic table from column headings and component cells.
+func Table(items ...any) neith.Component {
+	e := newElement("table")
+	e.classes = append(e.classes, "n-table")
+	e.apply(items...)
 	return e
 }
 
@@ -128,10 +161,60 @@ func Alert(message string, opts ...Option) neith.Component {
 	return e
 }
 
+// Primary marks a button as the primary action.
+func Primary() Option {
+	return Class("n-button--primary")
+}
+
+// Secondary marks a button as a secondary action.
+func Secondary() Option {
+	return Class("n-button--secondary")
+}
+
+// Danger marks a button or alert as destructive or high-risk.
+func Danger() Option {
+	return Class("n-danger")
+}
+
 // Children appends child components.
 func Children(children ...neith.Component) Option {
 	return func(c *Config) {
 		c.Children(children...)
+	}
+}
+
+// Columns sets table columns from header text.
+func Columns(headers ...string) Option {
+	return func(c *Config) {
+		columns := make([]Column, 0, len(headers))
+		for _, header := range headers {
+			columns = append(columns, Column{Header: header})
+		}
+		c.Columns(columns...)
+	}
+}
+
+// TableColumns sets explicit table columns.
+func TableColumns(columns ...Column) Option {
+	return func(c *Config) {
+		c.Columns(columns...)
+	}
+}
+
+// TableRow appends one table row. Cell values can be neith.Component or string.
+func TableRow(cells ...any) Option {
+	return func(c *Config) {
+		c.Row(cells...)
+	}
+}
+
+// Rows appends multiple table rows.
+func Rows(rows ...[]neith.Component) Option {
+	return func(c *Config) {
+		if c == nil || c.element == nil {
+			return
+		}
+		c.element.rows = append(c.element.rows, rows...)
 	}
 }
 
@@ -152,7 +235,16 @@ func Type(value string) Option {
 
 // Value sets the value attribute.
 func Value(value string) Option {
-	return Attr("value", value)
+	return func(c *Config) {
+		if c == nil || c.element == nil {
+			return
+		}
+		if c.element.tag == "textarea" {
+			c.element.text = value
+			return
+		}
+		c.Attr("value", value)
+	}
 }
 
 // Placeholder sets the placeholder attribute.
@@ -188,6 +280,13 @@ func Class(names ...string) Option {
 func Label(value string) Option {
 	return func(c *Config) {
 		c.Label(value)
+	}
+}
+
+// LabelClass appends class names to the generated label wrapper.
+func LabelClass(names ...string) Option {
+	return func(c *Config) {
+		c.LabelClass(names...)
 	}
 }
 
@@ -249,6 +348,15 @@ func semanticElement(tag string, class string, items ...any) neith.Component {
 	return e
 }
 
+func newInput(name string, inputType string) *element {
+	e := newElement("input")
+	e.void = true
+	e.attrs["type"] = inputType
+	e.attrs["name"] = name
+	e.classes = append(e.classes, "n-input")
+	return e
+}
+
 func newElement(tag string) *element {
 	return &element{
 		tag:       tag,
@@ -278,6 +386,8 @@ func (e *element) apply(items ...any) {
 			e.children = append(e.children, Text(v))
 		case []neith.Component:
 			e.children = append(e.children, v...)
+		case []Column:
+			e.columns = append(e.columns, v...)
 		}
 	}
 }
@@ -310,6 +420,18 @@ func (c *Config) Label(value string) {
 	c.element.label = value
 }
 
+// LabelClass appends class names to the generated label wrapper.
+func (c *Config) LabelClass(names ...string) {
+	if c == nil || c.element == nil {
+		return
+	}
+	for _, name := range names {
+		if name != "" {
+			c.element.labelClasses = append(c.element.labelClasses, name)
+		}
+	}
+}
+
 // BoolAttr toggles a boolean HTML attribute.
 func (c *Config) BoolAttr(name string, enabled bool) {
 	if c == nil || c.element == nil || name == "" {
@@ -334,9 +456,36 @@ func (c *Config) Choices(choices ...Choice) {
 	c.element.choices = append(c.element.choices, choices...)
 }
 
+// Columns appends table columns.
+func (c *Config) Columns(columns ...Column) {
+	if c == nil || c.element == nil {
+		return
+	}
+	c.element.columns = append(c.element.columns, columns...)
+}
+
+// Row appends one table row. Cell values can be neith.Component or string.
+func (c *Config) Row(cells ...any) {
+	if c == nil || c.element == nil {
+		return
+	}
+	row := make([]neith.Component, 0, len(cells))
+	for _, cell := range cells {
+		switch v := cell.(type) {
+		case nil:
+			row = append(row, Text(""))
+		case neith.Component:
+			row = append(row, v)
+		case string:
+			row = append(row, Text(v))
+		}
+	}
+	c.element.rows = append(c.element.rows, row)
+}
+
 func (e *element) Render(ctx context.Context, w io.Writer) error {
 	if e.label != "" && isLabelable(e.tag) {
-		if _, err := io.WriteString(w, "<label>"); err != nil {
+		if _, err := io.WriteString(w, "<label"+labelAttrString(e.labelClasses)+">"); err != nil {
 			return err
 		}
 		if _, err := io.WriteString(w, "<span>"+html.EscapeString(e.label)+"</span>"); err != nil {
@@ -368,12 +517,60 @@ func (e *element) renderElement(ctx context.Context, w io.Writer) error {
 			return err
 		}
 	}
+	if len(e.columns) > 0 || len(e.rows) > 0 {
+		if err := e.renderTableParts(ctx, w); err != nil {
+			return err
+		}
+	}
 	for _, child := range e.children {
 		if err := child.Render(ctx, w); err != nil {
 			return err
 		}
 	}
 	_, err := io.WriteString(w, "</"+e.tag+">")
+	return err
+}
+
+func (e *element) renderTableParts(ctx context.Context, w io.Writer) error {
+	if len(e.columns) > 0 {
+		if _, err := io.WriteString(w, "<thead><tr>"); err != nil {
+			return err
+		}
+		for _, column := range e.columns {
+			if _, err := io.WriteString(w, "<th>"+html.EscapeString(column.Header)+"</th>"); err != nil {
+				return err
+			}
+		}
+		if _, err := io.WriteString(w, "</tr></thead>"); err != nil {
+			return err
+		}
+	}
+	if len(e.rows) == 0 {
+		return nil
+	}
+	if _, err := io.WriteString(w, "<tbody>"); err != nil {
+		return err
+	}
+	for _, row := range e.rows {
+		if _, err := io.WriteString(w, "<tr>"); err != nil {
+			return err
+		}
+		for _, cell := range row {
+			if _, err := io.WriteString(w, "<td>"); err != nil {
+				return err
+			}
+			if err := cell.Render(ctx, w); err != nil {
+				return err
+			}
+			if _, err := io.WriteString(w, "</td>"); err != nil {
+				return err
+			}
+		}
+		if _, err := io.WriteString(w, "</tr>"); err != nil {
+			return err
+		}
+	}
+	_, err := io.WriteString(w, "</tbody>")
 	return err
 }
 
@@ -416,6 +613,13 @@ func (e *element) attrString() string {
 		b.WriteString(`"`)
 	}
 	return b.String()
+}
+
+func labelAttrString(classes []string) string {
+	if len(classes) == 0 {
+		return ""
+	}
+	return ` class="` + html.EscapeString(strings.Join(classes, " ")) + `"`
 }
 
 func renderChoice(w io.Writer, choice Choice) error {

@@ -137,14 +137,35 @@ func dashboardView(ctx context.Context, notice string) neith.Component {
 	history, _ := updates.History()
 	return ui.Stack(
 		ui.Class("dashboard-wrapper"),
-		dashboard(notice, updates.Value(), history),
+		dashboard(notice, updates.Value(), history, updateFormView()),
+	)
+}
+
+func updateFormView() neith.Component {
+	return ui.Form(
+		ui.Class("update-form"),
+		ui.HiddenInput("intent", "add"),
+		ui.TextInput("source",
+			ui.Label("Source"),
+			ui.Value("Billing service"),
+		),
+		ui.Select("status",
+			ui.Label("Status"),
+			ui.Options("ok", "queued", "warning"),
+		),
+		ui.TextArea("message",
+			ui.Label("Message"),
+			ui.LabelClass("message-field"),
+			ui.Value("Invoice reconciliation completed"),
+		),
+		ui.Button("Add update", ui.Type("submit"), ui.Primary()),
 	)
 }
 
 func renderDashboard(ctx context.Context, notice string) neith.FnComponent {
 	return neith.View(ctx, dashboardView(ctx, notice),
 		neith.Label("readme-dashboard"),
-		neith.On(neith.OnSubmit, handleSubmit),
+		neith.OnSubmit(handleSubmit),
 		neith.IntoTag("main"),
 	)
 }
