@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/snburman/neith"
+	"github.com/seanbman/neith"
 )
 
 const updatesCacheKey = "admin_updates"

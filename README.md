@@ -32,7 +32,7 @@ used as neith components.
 ## Installation
 
 ```sh
-go get github.com/snburman/neith
+go get github.com/seanbman/neith
 ```
 
 `neith` requires Go 1.21 or newer.
@@ -51,7 +51,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/snburman/neith"
+	"github.com/seanbman/neith"
 )
 
 func page(w http.ResponseWriter, r *http.Request) {
@@ -332,7 +332,7 @@ Set `Silent: true` or `LogLevel: neith.None` to disable package logs.
 
 The repository includes an external consumer-style app in
 `examples/readme-setup`. It has its own `go.mod`, imports
-`github.com/snburman/neith`, and uses a local `replace` directive so it runs
+`github.com/seanbman/neith`, and uses a local `replace` directive so it runs
 against the package source in this repo.
 
 Run it from the repo root:

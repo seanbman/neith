@@ -6,13 +6,13 @@ outside.
 It has its own Go module and imports:
 
 ```go
-github.com/snburman/neith
+github.com/seanbman/neith
 ```
 
 For local package development, `go.mod` uses:
 
 ```go
-replace github.com/snburman/neith => ../..
+replace github.com/seanbman/neith => ../..
 ```
 
 Run it from this folder:

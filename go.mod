@@ -1,4 +1,4 @@
-module github.com/snburman/neith
+module github.com/seanbman/neith
 
 go 1.21.5
 

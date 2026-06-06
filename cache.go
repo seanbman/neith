@@ -62,7 +62,7 @@ func NewCache[T any](ctx context.Context, key string, initial T) (Cache[T], erro
 // the key does not exist, UseCache returns ErrCacheNotFound; if the key exists
 // with a different type, it returns ErrCacheWrongType.
 //
-// https://pkg.go.dev/github.com/snburman/neith#UseCache
+// https://pkg.go.dev/github.com/seanbman/neith#UseCache
 func UseCache[T any](ctx context.Context, key string) (Cache[T], error) {
 	dispatch, err := cacheDispatch(ctx)
 	if err != nil {
