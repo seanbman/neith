@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"encoding/json"
@@ -101,5 +101,5 @@ func uploadDir() string {
 	if config.UploadDir != "" {
 		return config.UploadDir
 	}
-	return filepath.Join(os.TempDir(), "fcmp-uploads")
+	return filepath.Join(os.TempDir(), "neith-uploads")
 }

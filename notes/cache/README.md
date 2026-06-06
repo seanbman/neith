@@ -1,38 +1,38 @@
 # Cache
 
 The cache API stores typed, per-client state. A cache entry belongs to the
-current fcmp connection, which means two browser clients can use the same cache
+current neith connection, which means two browser clients can use the same cache
 key without sharing values.
 
-Cache functions must be called with a context created by `fcmp.MiddleWareFn`.
+Cache functions must be called with a context created by `neith.MiddleWareFn`.
 That context contains the connection ID used to choose the right cache store.
 
 ## Basic Flow
 
 ```go
-func app(ctx context.Context) fcmp.FnComponent {
-	_, err := fcmp.NewCache(ctx, "count", 0)
-	if err != nil && !errors.Is(err, fcmp.ErrCacheExists) {
-		return fcmp.FnErr(ctx, err)
+func app(ctx context.Context) neith.FnComponent {
+	_, err := neith.NewCache(ctx, "count", 0)
+	if err != nil && !errors.Is(err, neith.ErrCacheExists) {
+		return neith.FnErr(ctx, err)
 	}
 
 	return counter(ctx)
 }
 
-func counter(ctx context.Context) fcmp.FnComponent {
-	count, err := fcmp.UseCache[int](ctx, "count")
+func counter(ctx context.Context) neith.FnComponent {
+	count, err := neith.UseCache[int](ctx, "count")
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
 	_ = count.Set(count.Value() + 1)
 
-	return fcmp.NewFn(ctx, fcmp.HTML(fmt.Sprintf(
+	return neith.NewFn(ctx, neith.HTML(fmt.Sprintf(
 		`<button>Clicked %d times</button>`,
 		count.Value(),
-	))).WithEvents(func(ctx context.Context) fcmp.FnComponent {
+	))).WithEvents(func(ctx context.Context) neith.FnComponent {
 		return counter(ctx)
-	}, fcmp.OnClick)
+	}, neith.OnClick)
 }
 ```
 
@@ -41,9 +41,9 @@ func counter(ctx context.Context) fcmp.FnComponent {
 Creates a typed cache entry for the current connection.
 
 ```go
-cache, err := fcmp.NewCache(ctx, "user", User{Name: "Sean"})
+cache, err := neith.NewCache(ctx, "user", User{Name: "Sean"})
 if err != nil {
-	return fcmp.FnErr(ctx, err)
+	return neith.FnErr(ctx, err)
 }
 ```
 
@@ -51,16 +51,16 @@ Notes:
 
 - `T` is inferred from `initial`.
 - The key is scoped to the current browser connection.
-- Returns `ErrCtxMissingDispatch` if `ctx` was not created by fcmp middleware.
+- Returns `ErrCtxMissingDispatch` if `ctx` was not created by neith middleware.
 - Returns `ErrCacheExists` if the key already exists, even if the existing value
   has a different type.
 
 Common pattern:
 
 ```go
-_, err := fcmp.NewCache(ctx, "count", 0)
-if err != nil && !errors.Is(err, fcmp.ErrCacheExists) {
-	return fcmp.FnErr(ctx, err)
+_, err := neith.NewCache(ctx, "count", 0)
+if err != nil && !errors.Is(err, neith.ErrCacheExists) {
+	return neith.FnErr(ctx, err)
 }
 ```
 
@@ -69,9 +69,9 @@ if err != nil && !errors.Is(err, fcmp.ErrCacheExists) {
 Retrieves a typed cache entry for the current connection.
 
 ```go
-count, err := fcmp.UseCache[int](ctx, "count")
+count, err := neith.UseCache[int](ctx, "count")
 if err != nil {
-	return fcmp.FnErr(ctx, err)
+	return neith.FnErr(ctx, err)
 }
 ```
 
@@ -86,13 +86,13 @@ Notes:
 Updates the cache value and refreshes its expiry watcher.
 
 ```go
-cache, err := fcmp.UseCache[int](ctx, "count")
+cache, err := neith.UseCache[int](ctx, "count")
 if err != nil {
-	return fcmp.FnErr(ctx, err)
+	return neith.FnErr(ctx, err)
 }
 
 if err := cache.Set(cache.Value() + 1); err != nil {
-	return fcmp.FnErr(ctx, err)
+	return neith.FnErr(ctx, err)
 }
 ```
 
@@ -236,7 +236,7 @@ Notes:
 Registers a callback that runs after `Set` writes a value.
 
 ```go
-fcmp.OnCacheChange(cache, func() {
+neith.OnCacheChange(cache, func() {
 	fmt.Println("cache changed")
 })
 ```
@@ -252,7 +252,7 @@ Notes:
 Registers a callback that runs when the cache expires.
 
 ```go
-fcmp.OnCacheTimeOut(cache, func() {
+neith.OnCacheTimeOut(cache, func() {
 	fmt.Println("cache expired")
 })
 ```

@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"context"
@@ -27,7 +27,7 @@ type Cache[T any] struct {
 // NewCache creates a typed cache entry for the current client connection.
 //
 // The connection ID is read from the dispatch details stored in ctx by the
-// fcmp middleware. Each connection gets its own cache store, so the same key can
+// neith middleware. Each connection gets its own cache store, so the same key can
 // be reused safely across different browser clients. NewCache returns
 // ErrCacheExists if the key already exists for this connection, including when
 // the existing cache was created with a different type.
@@ -62,7 +62,7 @@ func NewCache[T any](ctx context.Context, key string, initial T) (Cache[T], erro
 // the key does not exist, UseCache returns ErrCacheNotFound; if the key exists
 // with a different type, it returns ErrCacheWrongType.
 //
-// https://pkg.go.dev/github.com/snburman/fcmp#UseCache
+// https://pkg.go.dev/github.com/snburman/neith#UseCache
 func UseCache[T any](ctx context.Context, key string) (Cache[T], error) {
 	dispatch, err := cacheDispatch(ctx)
 	if err != nil {
@@ -208,7 +208,7 @@ func (c *Cache[T]) watchExpiry(updatedAt time.Time) {
 	current.Delete()
 }
 
-// cacheDispatch extracts fcmp dispatch details from a request/event context.
+// cacheDispatch extracts neith dispatch details from a request/event context.
 //
 // Cache state is scoped to a connection ID, and that connection ID only exists
 // inside middleware-populated context. This helper keeps NewCache and UseCache

@@ -1,4 +1,4 @@
-import type { EventTargetData, Upload } from "./fcmp_types";
+import type { EventTargetData, Upload } from "./neith_types";
 import { formValues, uploadFormFiles } from "./uploads";
 
 const formEvents = ["submit", "change"];
@@ -23,7 +23,7 @@ export type ParsedEventData = {
 };
 
 /**
- * Converts a browser Event into the fcmp event payload sent to Go.
+ * Converts a browser Event into the neith event payload sent to Go.
  *
  * The event name comes from the server-provided listener metadata. It lets the
  * parser choose a smaller, explicit payload shape instead of trying to serialize
@@ -151,7 +151,7 @@ function getSubmitterElement(ev: Event) {
 }
 
 /**
- * Extracts the fields fcmp preserves from PointerEvent.
+ * Extracts the fields neith preserves from PointerEvent.
  */
 function parsePointerEvent(ev: PointerEvent): PointerEventProperties {
     return {
@@ -226,7 +226,7 @@ function parseTouch(ev: Touch): TouchProperties {
 }
 
 /**
- * Extracts the fields fcmp preserves from DragEvent.
+ * Extracts the fields neith preserves from DragEvent.
  */
 function parseDragEvent(ev: DragEvent): DragEventProperties {
     return {
@@ -257,7 +257,7 @@ function parseDragEvent(ev: DragEvent): DragEventProperties {
 }
 
 /**
- * Extracts the fields fcmp preserves from MouseEvent.
+ * Extracts the fields neith preserves from MouseEvent.
  */
 function parseMouseEvent(ev: MouseEvent): MouseEventProperties {
     return {
@@ -288,7 +288,7 @@ function parseMouseEvent(ev: MouseEvent): MouseEventProperties {
 }
 
 /**
- * Extracts the fields fcmp preserves from KeyboardEvent.
+ * Extracts the fields neith preserves from KeyboardEvent.
  */
 function parseKeyboardEvent(ev: KeyboardEvent): KeyboardEventProperties {
     return {

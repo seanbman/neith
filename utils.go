@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"strings"

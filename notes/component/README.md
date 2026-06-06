@@ -1,20 +1,20 @@
 # Component
 
-The component API is the core of fcmp's rendering model. A component renders
+The component API is the core of neith's rendering model. A component renders
 HTML on the server, and `FnComponent` carries that HTML plus instructions for
 how the browser should apply it.
 
 ## Basic Flow
 
 ```go
-func app(ctx context.Context) fcmp.FnComponent {
-	return fcmp.NewFn(ctx, fcmp.HTML(`
+func app(ctx context.Context) neith.FnComponent {
+	return neith.NewFn(ctx, neith.HTML(`
 		<button>Click me</button>
-	`)).WithEvents(clicked, fcmp.OnClick)
+	`)).WithEvents(clicked, neith.OnClick)
 }
 
-func clicked(ctx context.Context) fcmp.FnComponent {
-	return fcmp.NewFn(ctx, fcmp.HTML(`
+func clicked(ctx context.Context) neith.FnComponent {
+	return neith.NewFn(ctx, neith.HTML(`
 		<section>
 			<h1>Hello</h1>
 			<p>This was rendered on the server.</p>
@@ -25,7 +25,7 @@ func clicked(ctx context.Context) fcmp.FnComponent {
 
 ## `Component`
 
-Any type that implements this interface can be rendered by fcmp:
+Any type that implements this interface can be rendered by neith:
 
 ```go
 type Component interface {
@@ -49,7 +49,7 @@ func (g Greeting) Render(ctx context.Context, w io.Writer) error {
 Usage:
 
 ```go
-return fcmp.NewFn(ctx, Greeting{Name: "Sean"})
+return neith.NewFn(ctx, Greeting{Name: "Sean"})
 ```
 
 ## `RenderComponent(components...)`
@@ -57,9 +57,9 @@ return fcmp.NewFn(ctx, Greeting{Name: "Sean"})
 Renders one or more components into a plain HTML string.
 
 ```go
-html := fcmp.RenderComponent(
-	fcmp.HTML(`<h1>Title</h1>`),
-	fcmp.HTML(`<p>Body</p>`),
+html := neith.RenderComponent(
+	neith.HTML(`<h1>Title</h1>`),
+	neith.HTML(`<p>Body</p>`),
 )
 ```
 
@@ -74,8 +74,8 @@ Notes:
 Adapts a raw HTML string to the `Component` interface.
 
 ```go
-component := fcmp.HTML(`<button>Save</button>`)
-return fcmp.NewFn(ctx, component)
+component := neith.HTML(`<button>Save</button>`)
+return neith.NewFn(ctx, component)
 ```
 
 Notes:
@@ -88,7 +88,7 @@ Notes:
 Creates an `FnComponent` from a renderable component.
 
 ```go
-fn := fcmp.NewFn(ctx, fcmp.HTML(`<h1>Dashboard</h1>`))
+fn := neith.NewFn(ctx, neith.HTML(`<h1>Dashboard</h1>`))
 ```
 
 Notes:
@@ -101,7 +101,7 @@ Notes:
 Common usage:
 
 ```go
-return fcmp.NewFn(ctx, fcmp.HTML(`<p>Updated</p>`))
+return neith.NewFn(ctx, neith.HTML(`<p>Updated</p>`))
 ```
 
 ## `FnComponent.Render(ctx, writer)`
@@ -110,12 +110,12 @@ Writes the component wrapper and buffered HTML.
 
 ```go
 var out strings.Builder
-err := fcmp.NewFn(ctx, fcmp.HTML(`<p>Hello</p>`)).Render(ctx, &out)
+err := neith.NewFn(ctx, neith.HTML(`<p>Hello</p>`)).Render(ctx, &out)
 ```
 
 Notes:
 
-- Usually called internally by fcmp.
+- Usually called internally by neith.
 - The wrapper contains event metadata for the browser client.
 - Returns writer errors.
 
@@ -124,7 +124,7 @@ Notes:
 Appends bytes to the component's internal render buffer.
 
 ```go
-fn := fcmp.NewFn(ctx, nil)
+fn := neith.NewFn(ctx, nil)
 _, _ = fn.Write([]byte(`<p>Manual HTML</p>`))
 ```
 
@@ -141,7 +141,7 @@ Replaces the component context and refreshes connection dispatch details.
 fn = fn.WithContext(ctx)
 ```
 
-Use this when a component was created before the active fcmp context was
+Use this when a component was created before the active neith context was
 available, but needs to be dispatched later.
 
 ## `WithEvents(handler, events...)`
@@ -149,15 +149,15 @@ available, but needs to be dispatched later.
 Attaches server-side handlers to browser DOM events.
 
 ```go
-return fcmp.NewFn(ctx, fcmp.HTML(`<button>Save</button>`)).
-	WithEvents(save, fcmp.OnClick)
+return neith.NewFn(ctx, neith.HTML(`<button>Save</button>`)).
+	WithEvents(save, neith.OnClick)
 ```
 
 Multiple events:
 
 ```go
-return fcmp.NewFn(ctx, input).
-	WithEvents(update, fcmp.OnInput, fcmp.OnChange)
+return neith.NewFn(ctx, input).
+	WithEvents(update, neith.OnInput, neith.OnChange)
 ```
 
 Notes:
@@ -171,13 +171,13 @@ Notes:
 Turns the component into a redirect dispatch.
 
 ```go
-return fcmp.NewFn(ctx, nil).WithRedirect("/dashboard")
+return neith.NewFn(ctx, nil).WithRedirect("/dashboard")
 ```
 
 Shortcut:
 
 ```go
-return fcmp.RedirectURL(ctx, "/dashboard")
+return neith.RedirectURL(ctx, "/dashboard")
 ```
 
 ## `WithError(err)`
@@ -185,13 +185,13 @@ return fcmp.RedirectURL(ctx, "/dashboard")
 Turns the component into an error dispatch.
 
 ```go
-return fcmp.NewFn(ctx, nil).WithError(err)
+return neith.NewFn(ctx, nil).WithError(err)
 ```
 
 Shortcut:
 
 ```go
-return fcmp.FnErr(ctx, err)
+return neith.FnErr(ctx, err)
 ```
 
 Notes:
@@ -204,13 +204,13 @@ Notes:
 Configures a component dispatch to call a browser-side JavaScript function.
 
 ```go
-return fcmp.NewFn(ctx, nil).JS("showToast", "Saved")
+return neith.NewFn(ctx, nil).JS("showToast", "Saved")
 ```
 
 Immediate shortcut:
 
 ```go
-fcmp.JS(ctx, "showToast", "Saved")
+neith.JS(ctx, "showToast", "Saved")
 ```
 
 Browser-side expectation:
@@ -227,7 +227,7 @@ window.showToast = function (message) {
 Adds a label attribute to the rendered wrapper.
 
 ```go
-return fcmp.NewFn(ctx, component).WithLabel("counter")
+return neith.NewFn(ctx, component).WithLabel("counter")
 ```
 
 Notes:
@@ -245,7 +245,7 @@ be chained.
 Appends rendered HTML to the first matching tag.
 
 ```go
-return fcmp.NewFn(ctx, item).AppendTag("ul")
+return neith.NewFn(ctx, item).AppendTag("ul")
 ```
 
 ### `PrependTag(tag)`
@@ -253,7 +253,7 @@ return fcmp.NewFn(ctx, item).AppendTag("ul")
 Prepends rendered HTML to the first matching tag.
 
 ```go
-return fcmp.NewFn(ctx, alert).PrependTag("main")
+return neith.NewFn(ctx, alert).PrependTag("main")
 ```
 
 ### `SwapTagOuter(tag)`
@@ -261,7 +261,7 @@ return fcmp.NewFn(ctx, alert).PrependTag("main")
 Replaces the first matching tag itself.
 
 ```go
-return fcmp.NewFn(ctx, page).SwapTagOuter("main")
+return neith.NewFn(ctx, page).SwapTagOuter("main")
 ```
 
 ### `SwapTagInner(tag)`
@@ -269,7 +269,7 @@ return fcmp.NewFn(ctx, page).SwapTagOuter("main")
 Replaces the contents of the first matching tag.
 
 ```go
-return fcmp.NewFn(ctx, page).SwapTagInner("main")
+return neith.NewFn(ctx, page).SwapTagInner("main")
 ```
 
 This is the default mode used by `NewFn`.
@@ -279,7 +279,7 @@ This is the default mode used by `NewFn`.
 Appends rendered HTML to an element by ID.
 
 ```go
-return fcmp.NewFn(ctx, item).AppendElement("items")
+return neith.NewFn(ctx, item).AppendElement("items")
 ```
 
 ### `PrependElement(id)`
@@ -287,7 +287,7 @@ return fcmp.NewFn(ctx, item).AppendElement("items")
 Prepends rendered HTML to an element by ID.
 
 ```go
-return fcmp.NewFn(ctx, notice).PrependElement("messages")
+return neith.NewFn(ctx, notice).PrependElement("messages")
 ```
 
 ### `SwapElementOuter(id)`
@@ -295,7 +295,7 @@ return fcmp.NewFn(ctx, notice).PrependElement("messages")
 Replaces the selected element itself.
 
 ```go
-return fcmp.NewFn(ctx, card).SwapElementOuter("profile-card")
+return neith.NewFn(ctx, card).SwapElementOuter("profile-card")
 ```
 
 ### `SwapElementInner(id)`
@@ -303,7 +303,7 @@ return fcmp.NewFn(ctx, card).SwapElementOuter("profile-card")
 Replaces the selected element's contents.
 
 ```go
-return fcmp.NewFn(ctx, form).SwapElementInner("settings")
+return neith.NewFn(ctx, form).SwapElementInner("settings")
 ```
 
 ## `Dispatch()`
@@ -311,14 +311,14 @@ return fcmp.NewFn(ctx, form).SwapElementInner("settings")
 Immediately sends the configured component to the connected browser.
 
 ```go
-fcmp.NewFn(ctx, fcmp.HTML(`<p>Saved</p>`)).
+neith.NewFn(ctx, neith.HTML(`<p>Saved</p>`)).
 	SwapElementInner("status").
 	Dispatch()
 ```
 
 Notes:
 
-- Requires a valid fcmp context with a websocket connection.
+- Requires a valid neith context with a websocket connection.
 - Event handlers usually return `FnComponent` instead of calling `Dispatch`.
 - Use `Dispatch` for side effects inside a handler.
 
@@ -330,7 +330,7 @@ Creates an error component.
 
 ```go
 if err != nil {
-	return fcmp.FnErr(ctx, err)
+	return neith.FnErr(ctx, err)
 }
 ```
 
@@ -339,7 +339,7 @@ if err != nil {
 Creates a redirect component.
 
 ```go
-return fcmp.RedirectURL(ctx, "/login")
+return neith.RedirectURL(ctx, "/login")
 ```
 
 ### `JS(ctx, fn, arg)`
@@ -347,7 +347,7 @@ return fcmp.RedirectURL(ctx, "/login")
 Immediately calls a browser-side JavaScript function.
 
 ```go
-fcmp.JS(ctx, "showToast", "Saved")
+neith.JS(ctx, "showToast", "Saved")
 ```
 
 ### `AddClasses(ctx, id, classes...)`
@@ -355,7 +355,7 @@ fcmp.JS(ctx, "showToast", "Saved")
 Immediately adds CSS classes to an element by ID.
 
 ```go
-fcmp.AddClasses(ctx, "status", "is-active", "text-green")
+neith.AddClasses(ctx, "status", "is-active", "text-green")
 ```
 
 ### `RemoveClasses(ctx, id, classes...)`
@@ -363,7 +363,7 @@ fcmp.AddClasses(ctx, "status", "is-active", "text-green")
 Immediately removes CSS classes from an element by ID.
 
 ```go
-fcmp.RemoveClasses(ctx, "status", "is-active")
+neith.RemoveClasses(ctx, "status", "is-active")
 ```
 
 ### `RemoveElement(ctx, id)`
@@ -371,7 +371,7 @@ fcmp.RemoveClasses(ctx, "status", "is-active")
 Immediately removes an element by ID.
 
 ```go
-fcmp.RemoveElement(ctx, "modal")
+neith.RemoveElement(ctx, "modal")
 ```
 
 ### `RemoveTag(ctx, tag)`
@@ -379,7 +379,7 @@ fcmp.RemoveElement(ctx, "modal")
 Immediately removes the first matching tag.
 
 ```go
-fcmp.RemoveTag(ctx, "dialog")
+neith.RemoveTag(ctx, "dialog")
 ```
 
 ## Internal Flow

@@ -1,4 +1,4 @@
-module github.com/snburman/fcmp
+module github.com/snburman/neith
 
 go 1.21.5
 
@@ -22,7 +22,6 @@ require (
 )
 
 require (
-	github.com/a-h/templ v0.2.513
 	github.com/google/uuid v1.6.0
 	golang.org/x/net v0.19.0 // indirect
 )

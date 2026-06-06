@@ -1,11 +1,11 @@
 import { addEventListeners, parseEventListeners } from "./events";
-import type { Dispatch, DispatchFunctions } from "./fcmp_types";
-import { Fun } from "./fcmp_types";
+import type { Dispatch, DispatchFunctions } from "./neith_types";
+import { Fun } from "./neith_types";
 import { emitHook } from "./hooks";
 import { applyClass, applyCustom, applyDOM, applyRender } from "./render";
 
 /**
- * API owns the browser side of the fcmp dispatch protocol.
+ * API owns the browser side of the neith dispatch protocol.
  *
  * The websocket receives a Dispatch object from Go, then API.Process routes that
  * dispatch to the correct DOM operation. Some operations, such as ping and
@@ -29,7 +29,7 @@ export class API {
     /**
      * Routes one dispatch from the server to the matching browser operation.
      *
-     * Redirects are handled directly because they intentionally leave the fcmp
+     * Redirects are handled directly because they intentionally leave the neith
      * page. All other dispatches go through the `funs` lookup. If the operation
      * returns another dispatch, that response is serialized back to Go.
      */
@@ -66,7 +66,7 @@ export class API {
     };
 
     /**
-     * Converts a client-side failure into an fcmp error dispatch.
+     * Converts a client-side failure into an neith error dispatch.
      *
      * This keeps browser failures visible to the server instead of only throwing
      * in the console. The error hook fires before the dispatch is sent so app

@@ -1,9 +1,9 @@
 import { API } from "./api";
-import { Dispatch } from "./fcmp_types";
+import { Dispatch } from "./neith_types";
 import { emitHook } from "./hooks";
 
 /**
- * Socket owns the browser's websocket connection to the fcmp server.
+ * Socket owns the browser's websocket connection to the neith server.
  *
  * It builds the connection URL, keeps a stable client key in localStorage, hands
  * incoming messages to API for processing, and reconnects after unexpected
@@ -25,7 +25,7 @@ export class Socket {
      *
      * Tests can pass an explicit address. In normal browser usage, the address
      * is derived from the current page path and protocol so the client connects
-     * back to the same fcmp endpoint that served the page.
+     * back to the same neith endpoint that served the page.
      */
     constructor(addr?: string) {
         if (addr) {
@@ -37,7 +37,7 @@ export class Socket {
     }
 
     /**
-     * Builds the websocket address and persistent fcmp client key.
+     * Builds the websocket address and persistent neith client key.
      *
      * The key identifies a browser tab/session to the Go side. It is stored in
      * localStorage so reconnects and reloads can resume the same server-side
@@ -55,7 +55,7 @@ export class Socket {
             path_parsed = "/";
         }
 
-        let key = localStorage.getItem("fcmp");
+        let key = localStorage.getItem("neith");
         if (!key) {
             key = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
                 /[xy]/g,
@@ -65,7 +65,7 @@ export class Socket {
                     return v.toString(16);
                 }
             );
-            localStorage.setItem("fcmp", key);
+            localStorage.setItem("neith", key);
         }
         this.key = key;
 
@@ -74,7 +74,7 @@ export class Socket {
             protocol = "ws";
         }
 
-        this.addr = protocol + "://" + window.location.host + path_parsed + "?fcmp_id=" + this.key;
+        this.addr = protocol + "://" + window.location.host + path_parsed + "?neith_id=" + this.key;
     }
 
     /**
@@ -88,7 +88,7 @@ export class Socket {
         try {
             this.ws = new WebSocket(this.addr);
         } catch (err) {
-            throw new Error("ws: failed to connect to fcmp server: " + err);
+            throw new Error("ws: failed to connect to neith server: " + err);
         }
         try {
             this.api = new API(this.ws);

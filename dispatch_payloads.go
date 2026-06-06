@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 // FnRender describes how rendered HTML should be applied in the browser.
 type FnRender struct {

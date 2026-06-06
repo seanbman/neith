@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"bytes"
@@ -37,7 +37,7 @@ func TestHandlerUploadStoresMultipartFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/?fcmp_upload=1", &body)
+	req := httptest.NewRequest(http.MethodPost, "/?neith_upload=1", &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 

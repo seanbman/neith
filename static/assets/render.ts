@@ -1,12 +1,12 @@
 import type { ErrorReporter } from "./events";
-import type { Dispatch } from "./fcmp_types";
+import type { Dispatch } from "./neith_types";
 
 /**
  * Applies an HTML render dispatch to the requested DOM target.
  *
  * Go decides whether the incoming HTML should replace, append, prepend, remove,
  * or swap a DOM node. This function only performs that DOM operation and returns
- * the element that was targeted so the caller can scan it for fcmp event
+ * the element that was targeted so the caller can scan it for neith event
  * metadata after the HTML is in place.
  */
 export function applyRender(d: Dispatch, reportError: ErrorReporter): Element | void {

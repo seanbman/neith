@@ -1,7 +1,7 @@
-import type { Dispatch } from "./fcmp_types";
+import type { Dispatch } from "./neith_types";
 
 /**
- * Names of browser lifecycle hooks exposed by the fcmp client.
+ * Names of browser lifecycle hooks exposed by the neith client.
  */
 export type HookName =
     | "connect"
@@ -32,10 +32,10 @@ type HookCallback = (payload: HookPayload) => void;
 const hooks = new Map<HookName, Set<HookCallback>>();
 
 /**
- * Registers a callback for one fcmp lifecycle hook.
+ * Registers a callback for one neith lifecycle hook.
  *
  * The returned function removes the callback, which is useful for tests and for
- * application code that mounts/unmounts UI around fcmp.
+ * application code that mounts/unmounts UI around neith.
  */
 export function onHook(name: HookName, callback: HookCallback) {
     if (!hooks.has(name)) {
@@ -64,15 +64,15 @@ export function emitHook(name: HookName, payload: HookPayload = {}) {
 }
 
 /**
- * Installs the public hook API on window.fcmp.
+ * Installs the public hook API on window.neith.
  *
- * This gives application JavaScript a stable way to subscribe to fcmp lifecycle
+ * This gives application JavaScript a stable way to subscribe to neith lifecycle
  * events without importing this module directly from the bundle.
  */
 export function installHookAPI() {
     if (typeof window === "undefined") return;
 
-    const root = ((window as unknown as WindowWithFCMP).fcmp ||= {});
+    const root = ((window as unknown as WindowWithNeith).neith ||= {});
     root.on = onHook;
     root.off = offHook;
     root.hooks = {
@@ -84,8 +84,8 @@ export function installHookAPI() {
 /**
  * Shape added to the browser window by installHookAPI.
  */
-type WindowWithFCMP = Window & {
-    fcmp?: {
+type WindowWithNeith = Window & {
+    neith?: {
         on?: typeof onHook;
         off?: typeof offHook;
         hooks?: {

@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 // Handlers normally call EventData from inside a HandleFn. The payload shape
 // depends on the browser event: form events usually decode into a map or struct,
 // while pointer, keyboard, drag, mouse, and touch events can decode into the
-// matching fcmp event structs.
+// matching neith event structs.
 func EventData[T any](ctx context.Context) (T, error) {
 	var t T
 	e, err := currentEvent(ctx)
@@ -27,7 +27,7 @@ func EventData[T any](ctx context.Context) (T, error) {
 
 // EventUploads returns file metadata uploaded before the current event dispatch.
 //
-// File bytes are posted to fcmp's upload endpoint over HTTP. EventData still
+// File bytes are posted to neith's upload endpoint over HTTP. EventData still
 // contains normal form values, and EventUploads exposes the uploaded files.
 func EventUploads(ctx context.Context) ([]Upload, error) {
 	e, err := currentEvent(ctx)

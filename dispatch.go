@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import "encoding/json"
 
@@ -25,7 +25,7 @@ func newDispatch(key string) *Dispatch {
 
 // Dispatch is the websocket message exchanged by Go and the browser client.
 //
-// The flat JSON shape mirrors static/assets/fcmp_types.ts. Function selects
+// The flat JSON shape mirrors static/assets/neith_types.ts. Function selects
 // which nested payload is active for a given message.
 type Dispatch struct {
 	buf        []byte        `json:"-"`

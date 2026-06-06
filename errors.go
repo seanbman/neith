@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 type DispatchError string
 

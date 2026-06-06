@@ -10,7 +10,7 @@ import {
     jest,
 } from "@jest/globals";
 import { JSDOM } from "jsdom";
-import { Dispatch, Fun } from "../fcmp_types";
+import { Dispatch, Fun } from "../neith_types";
 import { onHook } from "../hooks";
 
 describe("test websocket functions", () => {
@@ -472,7 +472,7 @@ describe("test websocket functions", () => {
         (global as any).window = jsdom.window;
         (global as any).localStorage = jsdom.window.localStorage;
         (global as any).FormData = jsdom.window.FormData;
-        localStorage.setItem("fcmp", "upload-key");
+        localStorage.setItem("neith", "upload-key");
 
         const uploadedFile = {
             id: "upload-1",
@@ -480,7 +480,7 @@ describe("test websocket functions", () => {
             file_name: "hello.txt",
             content_type: "text/plain",
             size: 5,
-            path: "/tmp/fcmp/hello.txt",
+            path: "/tmp/neith/hello.txt",
         };
         (global as any).fetch = jest.fn(async () => ({
             ok: true,

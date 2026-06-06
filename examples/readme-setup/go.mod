@@ -1,10 +1,10 @@
-module fcmp-readme-setup
+module neith-readme-setup
 
 go 1.21.5
 
 require (
 	github.com/a-h/templ v0.2.513
-	github.com/snburman/fcmp v0.0.0
+	github.com/snburman/neith v0.0.0
 )
 
 require (
@@ -25,4 +25,4 @@ require (
 	golang.org/x/sys v0.15.0 // indirect
 )
 
-replace github.com/snburman/fcmp => ../..
+replace github.com/snburman/neith => ../..

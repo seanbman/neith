@@ -1,5 +1,5 @@
-// Package fcmp brings enhanced functionality to the Component interface.
-package fcmp
+// Package neith brings enhanced functionality to the Component interface.
+package neith
 
 import (
 	"math"
@@ -15,7 +15,7 @@ var logOpts = log.Options{
 	ReportCaller:    true,
 	ReportTimestamp: true,
 	TimeFormat:      time.Kitchen,
-	Prefix:          "package fcmp:",
+	Prefix:          "package neith:",
 }
 
 type LogLevel log.Level
@@ -45,7 +45,7 @@ type Config struct {
 	CacheTimeOut    time.Duration // Default cache timeout
 	LogLevel        LogLevel
 	Logger          *log.Logger
-	UploadDir       string // Directory for multipart event uploads; defaults to os.TempDir()/fcmp-uploads
+	UploadDir       string // Directory for multipart event uploads; defaults to os.TempDir()/neith-uploads
 	UploadMaxBytes  int64  // Maximum request size for one upload request
 	UploadMaxMemory int64  // Maximum multipart memory before files spill to disk
 }
@@ -66,7 +66,7 @@ func (c *Config) Set() {
 		return
 	}
 	c.Logger.Info(
-		"fcmp config set",
+		"neith config set",
 		"cache_timeout", c.CacheTimeOut,
 		"log_level", c.LogLevel,
 	)

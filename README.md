@@ -1,6 +1,6 @@
-# fcmp
+# neith
 
-`fcmp` is a small Go package for building server-rendered, interactive HTML components.
+`neith` is a small Go package for building server-rendered, interactive HTML components.
 It wraps Go components with a WebSocket-backed dispatch layer so the server can render
 HTML, respond to DOM events, update elements, redirect the browser, call client-side
 JavaScript, and keep per-client state.
@@ -13,8 +13,8 @@ type Component interface {
 }
 ```
 
-That means plain `fcmp.HTML`, `templ` components, or your own renderable types can be
-used as fcmp components.
+That means plain `neith.HTML`, `templ` components, or your own renderable types can be
+used as neith components.
 
 ## Features
 
@@ -32,15 +32,15 @@ used as fcmp components.
 ## Installation
 
 ```sh
-go get github.com/snburman/fcmp
+go get github.com/snburman/neith
 ```
 
-`fcmp` requires Go 1.21 or newer.
+`neith` requires Go 1.21 or newer.
 
 ## Quick Start
 
 Serve an HTML shell with a `<main>` element and the bundled browser client, then wrap
-your route with `fcmp.MiddleWareFn`.
+your route with `neith.MiddleWareFn`.
 
 ```go
 package main
@@ -51,7 +51,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/snburman/fcmp"
+	"github.com/snburman/neith"
 )
 
 func page(w http.ResponseWriter, r *http.Request) {
@@ -68,14 +68,14 @@ func page(w http.ResponseWriter, r *http.Request) {
 </html>`)
 }
 
-func app(ctx context.Context) fcmp.FnComponent {
-	return fcmp.NewFn(ctx, fcmp.HTML(`
+func app(ctx context.Context) neith.FnComponent {
+	return neith.NewFn(ctx, neith.HTML(`
 		<button>Click me</button>
-	`)).WithEvents(clicked, fcmp.OnClick)
+	`)).WithEvents(clicked, neith.OnClick)
 }
 
-func clicked(ctx context.Context) fcmp.FnComponent {
-	return fcmp.NewFn(ctx, fcmp.HTML(`
+func clicked(ctx context.Context) neith.FnComponent {
+	return neith.NewFn(ctx, neith.HTML(`
 		<section>
 			<h1>Hello from the server</h1>
 			<p>The button click was handled in Go.</p>
@@ -85,14 +85,14 @@ func clicked(ctx context.Context) fcmp.FnComponent {
 
 func main() {
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("static/assets"))))
-	http.HandleFunc("/", fcmp.MiddleWareFn(page, app))
+	http.HandleFunc("/", neith.MiddleWareFn(page, app))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 ```
 
 Open `http://localhost:8080`. The first request serves the HTML shell. The browser
-client then opens a WebSocket back to the same route with `?fcmp_id=...`, and
+client then opens a WebSocket back to the same route with `?neith_id=...`, and
 `MiddleWareFn` sends the initial `FnComponent` to the client.
 
 ## Rendering Components
@@ -101,29 +101,29 @@ Create an `FnComponent` with `NewFn(ctx, component)`. By default, it swaps the i
 HTML of the first `<main>` tag.
 
 ```go
-func view(ctx context.Context) fcmp.FnComponent {
-	return fcmp.NewFn(ctx, fcmp.HTML(`<h1>Dashboard</h1>`))
+func view(ctx context.Context) neith.FnComponent {
+	return neith.NewFn(ctx, neith.HTML(`<h1>Dashboard</h1>`))
 }
 ```
 
 You can change where the rendered HTML is applied:
 
 ```go
-fcmp.NewFn(ctx, component).SwapTagInner("main")
-fcmp.NewFn(ctx, component).SwapTagOuter("main")
-fcmp.NewFn(ctx, component).AppendTag("ul")
-fcmp.NewFn(ctx, component).PrependTag("ul")
+neith.NewFn(ctx, component).SwapTagInner("main")
+neith.NewFn(ctx, component).SwapTagOuter("main")
+neith.NewFn(ctx, component).AppendTag("ul")
+neith.NewFn(ctx, component).PrependTag("ul")
 
-fcmp.NewFn(ctx, component).SwapElementInner("content")
-fcmp.NewFn(ctx, component).SwapElementOuter("content")
-fcmp.NewFn(ctx, component).AppendElement("items")
-fcmp.NewFn(ctx, component).PrependElement("items")
+neith.NewFn(ctx, component).SwapElementInner("content")
+neith.NewFn(ctx, component).SwapElementOuter("content")
+neith.NewFn(ctx, component).AppendElement("items")
+neith.NewFn(ctx, component).PrependElement("items")
 ```
 
 To render components to a string outside the live dispatch flow:
 
 ```go
-html := fcmp.RenderComponent(fcmp.HTML(`<p>Rendered</p>`))
+html := neith.RenderComponent(neith.HTML(`<p>Rendered</p>`))
 ```
 
 ## Events
@@ -131,22 +131,22 @@ html := fcmp.RenderComponent(fcmp.HTML(`<p>Rendered</p>`))
 Attach one or more DOM events with `WithEvents`.
 
 ```go
-func form(ctx context.Context) fcmp.FnComponent {
-	return fcmp.NewFn(ctx, fcmp.HTML(`
+func form(ctx context.Context) neith.FnComponent {
+	return neith.NewFn(ctx, neith.HTML(`
 		<form>
 			<input name="name" placeholder="Name">
 			<button>Save</button>
 		</form>
-	`)).WithEvents(save, fcmp.OnSubmit)
+	`)).WithEvents(save, neith.OnSubmit)
 }
 
-func save(ctx context.Context) fcmp.FnComponent {
-	values, err := fcmp.EventData[map[string]string](ctx)
+func save(ctx context.Context) neith.FnComponent {
+	values, err := neith.EventData[map[string]string](ctx)
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
-	return fcmp.NewFn(ctx, fcmp.HTML(
+	return neith.NewFn(ctx, neith.HTML(
 		"<p>Saved " + values["name"] + "</p>",
 	)).SwapTagInner("main")
 }
@@ -154,30 +154,30 @@ func save(ctx context.Context) fcmp.FnComponent {
 
 For pointer, mouse, keyboard, drag, touch, input, change, submit, and other DOM events,
 the browser client sends event data back to Go. Use `EventData[T]` with the matching
-type, such as `fcmp.PointerEvent`, `fcmp.DragEvent`, or your own form-data struct/map.
+type, such as `neith.PointerEvent`, `neith.DragEvent`, or your own form-data struct/map.
 
 Event targets include the element ID, name, classes, tag name, HTML, value, checked,
 disabled, hidden, inline style, attributes, dataset, and selected option values. For
 mouse, pointer, drag, touch, and keyboard payloads, `source` is the element that
-caused the event and `component` is the fcmp wrapper listening for it. For submit
+caused the event and `component` is the neith wrapper listening for it. For submit
 events, `EventSubmitter` returns the button or input that submitted the form.
 
 ```go
-func save(ctx context.Context) fcmp.FnComponent {
-	values, err := fcmp.EventData[map[string]string](ctx)
+func save(ctx context.Context) neith.FnComponent {
+	values, err := neith.EventData[map[string]string](ctx)
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
-	submitter, err := fcmp.EventSubmitter(ctx)
+	submitter, err := neith.EventSubmitter(ctx)
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 	if submitter != nil && submitter.Value == "delete" {
-		return fcmp.NewFn(ctx, fcmp.HTML("<p>Delete requested</p>"))
+		return neith.NewFn(ctx, neith.HTML("<p>Delete requested</p>"))
 	}
 
-	return fcmp.NewFn(ctx, fcmp.HTML("<p>Saved " + values["name"] + "</p>"))
+	return neith.NewFn(ctx, neith.HTML("<p>Saved " + values["name"] + "</p>"))
 }
 ```
 
@@ -188,67 +188,67 @@ sent. Normal form values stay available through `EventData`, and uploaded file
 metadata is available with `EventUploads`.
 
 ```go
-func upload(ctx context.Context) fcmp.FnComponent {
-	values, err := fcmp.EventData[map[string]string](ctx)
+func upload(ctx context.Context) neith.FnComponent {
+	values, err := neith.EventData[map[string]string](ctx)
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
-	uploads, err := fcmp.EventUploads(ctx)
+	uploads, err := neith.EventUploads(ctx)
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
-	return fcmp.NewFn(ctx, fcmp.HTML(
+	return neith.NewFn(ctx, neith.HTML(
 		"<p>Saved " + values["title"] + " with " + uploads[0].FileName + "</p>",
 	))
 }
 ```
 
 Uploaded files are written to `Config.UploadDir`, or to the system temp
-directory under `fcmp-uploads` when no directory is configured.
+directory under `neith-uploads` when no directory is configured.
 
 ## Server-Initiated Updates
 
 Handlers can dispatch extra effects while handling an event:
 
 ```go
-func clicked(ctx context.Context) fcmp.FnComponent {
-	fcmp.AddClasses(ctx, "status", "active")
-	fcmp.RemoveClasses(ctx, "status", "pending")
-	fcmp.JS(ctx, "Testing", "called from Go")
+func clicked(ctx context.Context) neith.FnComponent {
+	neith.AddClasses(ctx, "status", "active")
+	neith.RemoveClasses(ctx, "status", "pending")
+	neith.JS(ctx, "Testing", "called from Go")
 
-	return fcmp.NewFn(ctx, fcmp.HTML(`<p id="status">Done</p>`))
+	return neith.NewFn(ctx, neith.HTML(`<p id="status">Done</p>`))
 }
 ```
 
 Other helpers:
 
 ```go
-fcmp.SetAttribute(ctx, "save", "aria-busy", "true")
-fcmp.RemoveAttribute(ctx, "save", "aria-busy")
-fcmp.SetStyle(ctx, "status", "color", "green")
-fcmp.RemoveStyle(ctx, "status", "color")
-fcmp.SetText(ctx, "status", "Saved")
-fcmp.SetValue(ctx, "search", "")
-fcmp.Focus(ctx, "search")
-fcmp.Blur(ctx, "search")
-fcmp.ScrollIntoView(ctx, "results")
-fcmp.Disable(ctx, "save")
-fcmp.Enable(ctx, "save")
-fcmp.RemoveElement(ctx, "modal")
-fcmp.RemoveTag(ctx, "dialog")
-return fcmp.RedirectURL(ctx, "/next")
+neith.SetAttribute(ctx, "save", "aria-busy", "true")
+neith.RemoveAttribute(ctx, "save", "aria-busy")
+neith.SetStyle(ctx, "status", "color", "green")
+neith.RemoveStyle(ctx, "status", "color")
+neith.SetText(ctx, "status", "Saved")
+neith.SetValue(ctx, "search", "")
+neith.Focus(ctx, "search")
+neith.Blur(ctx, "search")
+neith.ScrollIntoView(ctx, "results")
+neith.Disable(ctx, "save")
+neith.Enable(ctx, "save")
+neith.RemoveElement(ctx, "modal")
+neith.RemoveTag(ctx, "dialog")
+return neith.RedirectURL(ctx, "/next")
 ```
 
 The browser client also exposes lifecycle hooks:
 
 ```js
-window.fcmp.on("afterRender", ({ dispatch, element }) => {
+window.neith.on("afterRender", ({ dispatch, element }) => {
 	console.log("rendered", dispatch.function, element)
 })
 
-window.fcmp.on("beforeEventDispatch", ({ dispatch, event }) => {
+window.neith.on("beforeEventDispatch", ({ dispatch, event }) => {
 	console.log("sending event", dispatch.event.on)
 })
 ```
@@ -258,29 +258,29 @@ disconnects are retried with capped exponential backoff instead of reloading the
 
 ## Cache
 
-`fcmp` includes a generic, per-connection cache. Create a cache once, then reuse it
+`neith` includes a generic, per-connection cache. Create a cache once, then reuse it
 from later handlers for the same client connection.
 
 ```go
-func app(ctx context.Context) fcmp.FnComponent {
-	_, _ = fcmp.NewCache(ctx, "count", 0)
+func app(ctx context.Context) neith.FnComponent {
+	_, _ = neith.NewCache(ctx, "count", 0)
 	return counter(ctx)
 }
 
-func counter(ctx context.Context) fcmp.FnComponent {
-	count, err := fcmp.UseCache[int](ctx, "count")
+func counter(ctx context.Context) neith.FnComponent {
+	count, err := neith.UseCache[int](ctx, "count")
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
 	_ = count.Set(count.Value() + 1)
 
-	return fcmp.NewFn(ctx, fcmp.HTML(fmt.Sprintf(
+	return neith.NewFn(ctx, neith.HTML(fmt.Sprintf(
 		`<button>Clicked %d times</button>`,
 		count.Value(),
-	))).WithEvents(func(ctx context.Context) fcmp.FnComponent {
+	))).WithEvents(func(ctx context.Context) neith.FnComponent {
 		return counter(ctx)
-	}, fcmp.OnClick)
+	}, neith.OnClick)
 }
 ```
 
@@ -301,9 +301,9 @@ Use `Record(true)` before calling `Set` when you want to keep a history of cache
 updates:
 
 ```go
-cache, err := fcmp.UseCache[int](ctx, "count")
+cache, err := neith.UseCache[int](ctx, "count")
 if err != nil {
-	return fcmp.FnErr(ctx, err)
+	return neith.FnErr(ctx, err)
 }
 
 cache.Record(true)
@@ -320,19 +320,19 @@ if ok {
 The default config uses a 30 minute cache timeout and logs errors.
 
 ```go
-fcmp.SetConfig(&fcmp.Config{
+neith.SetConfig(&neith.Config{
 	CacheTimeOut: 10 * time.Minute,
-	LogLevel:     fcmp.Info,
+	LogLevel:     neith.Info,
 })
 ```
 
-Set `Silent: true` or `LogLevel: fcmp.None` to disable package logs.
+Set `Silent: true` or `LogLevel: neith.None` to disable package logs.
 
 ## Example App
 
 The repository includes an external consumer-style app in
 `examples/readme-setup`. It has its own `go.mod`, imports
-`github.com/snburman/fcmp`, and uses a local `replace` directive so it runs
+`github.com/snburman/neith`, and uses a local `replace` directive so it runs
 against the package source in this repo.
 
 Run it from the repo root:
@@ -383,7 +383,7 @@ file checked in beside it. Regenerate that file from the repo root with
 `make example-templ`.
 
 The example serves the package's bundled browser client from `static/assets`, so
-it can test local `fcmp` changes without copying generated assets into the
+it can test local `neith` changes without copying generated assets into the
 example folder.
 
 ## Detailed Notes

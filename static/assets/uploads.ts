@@ -1,7 +1,7 @@
-import type { Upload } from "./fcmp_types";
+import type { Upload } from "./neith_types";
 
 /**
- * JSON response returned by fcmp's HTTP upload endpoint.
+ * JSON response returned by neith's HTTP upload endpoint.
  */
 type UploadResponse = {
     files?: Upload[];
@@ -124,16 +124,16 @@ function collectFiles(form: HTMLFormElement): Array<{ name: string; file: File }
 /**
  * Builds the upload endpoint URL for the current page.
  *
- * The fcmp ID is included when present so the Go side can associate the upload
+ * The neith ID is included when present so the Go side can associate the upload
  * request with the same connection/session as the later websocket event.
  */
 function uploadURL(): string {
     const url = new URL(window.location.href);
-    url.searchParams.set("fcmp_upload", "1");
+    url.searchParams.set("neith_upload", "1");
 
-    const key = localStorage.getItem("fcmp");
+    const key = localStorage.getItem("neith");
     if (key) {
-        url.searchParams.set("fcmp_id", key);
+        url.searchParams.set("neith_id", key);
     }
 
     return url.toString();

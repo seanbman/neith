@@ -50,7 +50,7 @@ sass:
 	sass --watch static/assets/sass:static/assets/stylesheets
 
 publish:
-	git tag -s v0.3.305 -m "fcmp v$(VERSION)" && \
+	git tag -s v0.3.305 -m "neith v$(VERSION)" && \
 	git push --tags && \
-	GOPROXY=proxy.golang.org go list -m github.com/seanbman/fcmp@v$(VERSION) && \
-	curl https://sum.golang.org/lookup/github.com/seanbman/fcmp@v$(VERSION)
+	GOPROXY=proxy.golang.org go list -m github.com/seanbman/neith@v$(VERSION) && \
+	curl https://sum.golang.org/lookup/github.com/seanbman/neith@v$(VERSION)

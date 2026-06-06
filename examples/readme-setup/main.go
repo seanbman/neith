@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/snburman/fcmp"
+	"github.com/snburman/neith"
 )
 
 const updatesCacheKey = "admin_updates"
@@ -29,49 +29,49 @@ func page(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "static/index.html")
 }
 
-func app(ctx context.Context) fcmp.FnComponent {
+func app(ctx context.Context) neith.FnComponent {
 	if err := ensureCache(ctx, updatesCacheKey, []adminUpdate{}); err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
-	updates, err := fcmp.UseCache[[]adminUpdate](ctx, updatesCacheKey)
+	updates, err := neith.UseCache[[]adminUpdate](ctx, updatesCacheKey)
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 	updates.Record(true)
 
-	return fcmp.NewFn(ctx, dashboardView(ctx, "Fill out the form to add a cache update.")).
-		WithEvents(handleSubmit, fcmp.OnSubmit)
+	return neith.NewFn(ctx, dashboardView(ctx, "Fill out the form to add a cache update.")).
+		WithEvents(handleSubmit, neith.OnSubmit)
 }
 
-func handleSubmit(ctx context.Context) fcmp.FnComponent {
-	form, err := fcmp.EventData[map[string]string](ctx)
+func handleSubmit(ctx context.Context) neith.FnComponent {
+	form, err := neith.EventData[map[string]string](ctx)
 	if err != nil {
-		return fcmp.FnErr(ctx, err)
+		return neith.FnErr(ctx, err)
 	}
 
 	switch form["intent"] {
 	case "delete":
 		id, err := strconv.Atoi(form["id"])
 		if err != nil {
-			return fcmp.FnErr(ctx, err)
+			return neith.FnErr(ctx, err)
 		}
 		deleted, err := deleteUpdate(ctx, id)
 		if err != nil {
-			return fcmp.FnErr(ctx, err)
+			return neith.FnErr(ctx, err)
 		}
 		if !deleted {
-			return fcmp.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Cache record #%03d was already gone.", id))).
-				WithEvents(handleSubmit, fcmp.OnSubmit)
+			return neith.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Cache record #%03d was already gone.", id))).
+				WithEvents(handleSubmit, neith.OnSubmit)
 		}
-		return fcmp.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Deleted cache record #%03d.", id))).
-			WithEvents(handleSubmit, fcmp.OnSubmit)
+		return neith.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Deleted cache record #%03d.", id))).
+			WithEvents(handleSubmit, neith.OnSubmit)
 	default:
 		if err := addUpdate(ctx, form); err != nil {
-			return fcmp.FnErr(ctx, err)
+			return neith.FnErr(ctx, err)
 		}
-		return fcmp.NewFn(ctx, dashboardView(ctx, "Cache updated from submitted form data.")).
-			WithEvents(handleSubmit, fcmp.OnSubmit)
+		return neith.NewFn(ctx, dashboardView(ctx, "Cache updated from submitted form data.")).
+			WithEvents(handleSubmit, neith.OnSubmit)
 	}
 }
 
@@ -86,7 +86,7 @@ func addUpdate(ctx context.Context, form map[string]string) error {
 }
 
 func appendUpdate(ctx context.Context, update adminUpdate) error {
-	updates, err := fcmp.UseCache[[]adminUpdate](ctx, updatesCacheKey)
+	updates, err := neith.UseCache[[]adminUpdate](ctx, updatesCacheKey)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func appendUpdate(ctx context.Context, update adminUpdate) error {
 }
 
 func deleteUpdate(ctx context.Context, id int) (bool, error) {
-	updates, err := fcmp.UseCache[[]adminUpdate](ctx, updatesCacheKey)
+	updates, err := neith.UseCache[[]adminUpdate](ctx, updatesCacheKey)
 	if err != nil {
 		return false, err
 	}
@@ -127,8 +127,8 @@ func deleteUpdate(ctx context.Context, id int) (bool, error) {
 	return true, nil
 }
 
-func dashboardView(ctx context.Context, notice string) fcmp.Component {
-	updates, err := fcmp.UseCache[[]adminUpdate](ctx, updatesCacheKey)
+func dashboardView(ctx context.Context, notice string) neith.Component {
+	updates, err := neith.UseCache[[]adminUpdate](ctx, updatesCacheKey)
 	if err != nil {
 		return cacheError(err.Error())
 	}
@@ -223,8 +223,8 @@ func formatConsoleDump(rows []adminUpdate) string {
 }
 
 func ensureCache[T any](ctx context.Context, key string, initial T) error {
-	_, err := fcmp.NewCache(ctx, key, initial)
-	if err == nil || errors.Is(err, fcmp.ErrCacheExists) {
+	_, err := neith.NewCache(ctx, key, initial)
+	if err == nil || errors.Is(err, neith.ErrCacheExists) {
 		return nil
 	}
 	return err
@@ -251,7 +251,7 @@ func statusClass(status string) string {
 
 func main() {
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("../../static/assets"))))
-	http.HandleFunc("/", fcmp.MiddleWareFn(page, app))
+	http.HandleFunc("/", neith.MiddleWareFn(page, app))
 
 	log.Println("listening on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

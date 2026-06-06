@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Component is the minimal renderable unit fcmp can send to the browser.
+// Component is the minimal renderable unit neith can send to the browser.
 //
 // It intentionally matches the shape used by templ and many simple Go HTML
 // renderers: Render receives a context and writes HTML to the supplied writer.
@@ -61,11 +61,11 @@ const (
 // NewFn creates a new FnComponent from a Component.
 //
 // The component is given a unique DOM wrapper ID and, when ctx was created by
-// fcmp middleware, is attached to the active websocket dispatch context. NewFn
+// neith middleware, is attached to the active websocket dispatch context. NewFn
 // defaults to swapping the inner HTML of <main>, which gives simple apps a
 // useful render target without extra setup.
 func NewFn(ctx context.Context, c Component) FnComponent {
-	id := "fcmp-" + uuid.New().String()
+	id := "neith-" + uuid.New().String()
 
 	dispatch := newDispatch(id)
 	dd, ok := dispatchFromContext(ctx)
@@ -334,7 +334,7 @@ func (f FnComponent) SwapElementInner(id string) FnComponent {
 // Dispatch immediately queues this component for the active browser connection.
 //
 // Dispatch requires a connection and handler ID from middleware context. If the
-// component was created outside an fcmp request/event context, Dispatch logs the
+// component was created outside an neith request/event context, Dispatch logs the
 // missing connection and returns without sending anything.
 func (f FnComponent) Dispatch() {
 	if f.dispatch.conn == nil {
@@ -352,7 +352,7 @@ func (f FnComponent) Dispatch() {
 // FnErr creates an error dispatch from a context and error.
 //
 // This is a convenience for event handlers that return FnComponent and want to
-// surface an error through fcmp's normal error path.
+// surface an error through neith's normal error path.
 func FnErr(ctx context.Context, err error) FnComponent {
 	if err == nil {
 		err = errors.New("error is nil")

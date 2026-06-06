@@ -1,6 +1,6 @@
 import { parseEventData } from "./event_payloads";
-import type { Dispatch, FnEventListener } from "./fcmp_types";
-import { Fun } from "./fcmp_types";
+import type { Dispatch, FnEventListener } from "./neith_types";
+import { Fun } from "./neith_types";
 import { emitHook } from "./hooks";
 
 /**
@@ -12,12 +12,12 @@ import { emitHook } from "./hooks";
 export type DispatchSender = (data: Dispatch | void) => void;
 
 /**
- * Reports a browser-side problem as an fcmp error dispatch.
+ * Reports a browser-side problem as an neith error dispatch.
  */
 export type ErrorReporter = (d: Dispatch, message: string) => void;
 
 /**
- * Extracts fcmp event listener metadata from newly rendered HTML.
+ * Extracts neith event listener metadata from newly rendered HTML.
  *
  * Go serializes listener definitions into `events` attributes on component
  * wrappers. After render, this scans the rendered subtree, parses each JSON
@@ -38,7 +38,7 @@ export function parseEventListeners(element: Element, d: Dispatch): Dispatch {
 /**
  * Binds all event listeners described by a render dispatch.
  *
- * Each listener is attached to the fcmp wrapper element identified by target_id.
+ * Each listener is attached to the neith wrapper element identified by target_id.
  * Browser events bubble up from the actual clicked/typed/touched element. Event
  * payload parsing exposes the wrapper as `component` and the concrete
  * interacted element as `source`.

@@ -8,7 +8,7 @@ preset: "ts-jest",
   moduleNameMapper: {
     "../socket": "../socket.ts",
     "./api": "./api.ts",
-    "../fcmp_types": "../fcmp_types.ts",
-    "./fcmp_types": "./fcmp_types.ts",
+    "../neith_types": "../neith_types.ts",
+    "./neith_types": "./neith_types.ts",
   }
 };

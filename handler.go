@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"context"
@@ -228,8 +228,8 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 	handler.listen()
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.URL.Query().Get("fcmp_id")
-		if r.URL.Query().Get("fcmp_upload") == "1" {
+		id := r.URL.Query().Get("neith_id")
+		if r.URL.Query().Get("neith_upload") == "1" {
 			handler.Upload(w, r)
 			return
 		}

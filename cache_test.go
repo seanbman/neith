@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 import (
 	"context"
@@ -17,7 +17,7 @@ func init() {
 		ReportCaller:    true,
 		ReportTimestamp: true,
 		TimeFormat:      time.Kitchen,
-		Prefix:          "TESTING fcmp:",
+		Prefix:          "TESTING neith:",
 	}
 	logOpts = opts
 	config = &Config{

@@ -47,7 +47,7 @@ func dashboard(notice string, rows []adminUpdate, history map[string][]adminUpda
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var4 := `Submit the form to add real example data to fcmp cache and re-render this table.`
+		templ_7745c5c3_Var4 := `Submit the form to add real example data to neith cache and re-render this table.`
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err

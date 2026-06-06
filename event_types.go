@@ -1,4 +1,4 @@
-package fcmp
+package neith
 
 // Upload describes one file uploaded for an event.
 type Upload struct {
