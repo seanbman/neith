@@ -163,7 +163,7 @@ func (f FnComponent) WithError(err error) FnComponent {
 	if err == nil {
 		err = errors.New("error is nil")
 	}
-	f.dispatch.Function = _error
+	f.dispatch.Function = fnError
 	f.dispatch.FnError.Message = err.Error()
 	return f
 }

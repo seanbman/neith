@@ -74,7 +74,7 @@ func (h *handler) listen() {
 				go h.Event(d)
 			case custom:
 				go h.CustomIn(d)
-			case _error:
+			case fnError:
 				go h.Error(d)
 			default:
 				d.FnError.Message = fmt.Sprintf(
@@ -98,7 +98,7 @@ func (h *handler) listen() {
 				go h.Redirect(fn)
 			case custom:
 				go h.CustomOut(fn)
-			case _error:
+			case fnError:
 				go h.Error(*fn.dispatch)
 			default:
 				fn.dispatch.FnError.Message = fmt.Sprintf(
