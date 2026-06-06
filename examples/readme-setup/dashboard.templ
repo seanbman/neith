@@ -1,0 +1,126 @@
+package main
+
+import "fmt"
+
+templ dashboard(notice string, rows []adminUpdate, history map[string][]adminUpdate) {
+	<section class="dashboard">
+		<header class="dashboard__header">
+			<div>
+				<p class="eyebrow">Admin cache monitor</p>
+				<h1>Manual update table</h1>
+				<p class="muted">Submit the form to add real example data to fcmp cache and re-render this table.</p>
+			</div>
+			<div class="status">
+				<span class="status__dot"></span>
+				{ notice }
+			</div>
+		</header>
+		<div class="metrics">
+			@metric("Cached rows", len(rows))
+			@metric("History snapshots", len(history))
+		</div>
+		@updateForm()
+		@updateTable(rows)
+		@recordWindow(rows)
+		@historyWindow(history)
+	</section>
+}
+
+templ cacheError(message string) {
+	<section>
+		<h1>Cache error</h1>
+		<p>{ message }</p>
+	</section>
+}
+
+templ metric(label string, value int) {
+	<article class="metric">
+		<strong>{ fmt.Sprintf("%d", value) }</strong>
+		<span>{ label }</span>
+	</article>
+}
+
+templ updateForm() {
+	<form class="update-form">
+		<input type="hidden" name="intent" value="add"/>
+		<label>
+			<span>Source</span>
+			<input name="source" value="Billing service"/>
+		</label>
+		<label>
+			<span>Status</span>
+			<select name="status">
+				<option value="ok">ok</option>
+				<option value="queued">queued</option>
+				<option value="warning">warning</option>
+			</select>
+		</label>
+		<label class="message-field">
+			<span>Message</span>
+			<input name="message" value="Invoice reconciliation completed"/>
+		</label>
+		<button type="submit">Add update</button>
+	</form>
+}
+
+templ updateTable(rows []adminUpdate) {
+	<div class="table-wrap">
+		<table>
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Received</th>
+					<th>Source</th>
+					<th>Status</th>
+					<th>Message</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				if len(rows) == 0 {
+					<tr>
+						<td colspan="6" class="empty">No cache updates yet. Submit the form above.</td>
+					</tr>
+				}
+				for _, row := range rows {
+					<tr>
+						<td>{ fmt.Sprintf("#%03d", row.ID) }</td>
+						<td>{ row.ReceivedAt.Format("15:04:05") }</td>
+						<td>{ row.Source }</td>
+						<td>
+							<span class={ "pill pill--" + statusClass(row.Status) }>{ row.Status }</span>
+						</td>
+						<td>{ row.Message }</td>
+						<td>
+							<form class="delete-form">
+								<input type="hidden" name="intent" value="delete"/>
+								<input type="hidden" name="id" value={ fmt.Sprintf("%d", row.ID) }/>
+								<button class="button-danger" type="submit">Delete</button>
+							</form>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+templ recordWindow(rows []adminUpdate) {
+	<section class="record-window">
+		<div class="record-window__header">
+			<h2>Full cache contents</h2>
+			<p>Terminal-style dump of the current admin_updates cache value.</p>
+		</div>
+		<pre class="cache-terminal"><code>{ formatCacheDump(rows) }</code></pre>
+	</section>
+}
+
+templ historyWindow(history map[string][]adminUpdate) {
+	<section class="record-window">
+		<div class="record-window__header">
+			<h2>Cache history store</h2>
+			<p>Every Set call records a version here because Record(true) is enabled.</p>
+		</div>
+		<pre class="cache-terminal cache-terminal--history"><code>{ formatHistoryDump(history) }</code></pre>
+	</section>
+}

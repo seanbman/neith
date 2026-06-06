@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html"
 	"log"
 	"net/http"
 	"sort"
@@ -41,7 +40,7 @@ func app(ctx context.Context) fcmp.FnComponent {
 	}
 	updates.Record(true)
 
-	return fcmp.NewFn(ctx, dashboard(ctx, "Fill out the form to add a cache update.")).
+	return fcmp.NewFn(ctx, dashboardView(ctx, "Fill out the form to add a cache update.")).
 		WithEvents(handleSubmit, fcmp.OnSubmit)
 }
 
@@ -62,16 +61,16 @@ func handleSubmit(ctx context.Context) fcmp.FnComponent {
 			return fcmp.FnErr(ctx, err)
 		}
 		if !deleted {
-			return fcmp.NewFn(ctx, dashboard(ctx, fmt.Sprintf("Cache record #%03d was already gone.", id))).
+			return fcmp.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Cache record #%03d was already gone.", id))).
 				WithEvents(handleSubmit, fcmp.OnSubmit)
 		}
-		return fcmp.NewFn(ctx, dashboard(ctx, fmt.Sprintf("Deleted cache record #%03d.", id))).
+		return fcmp.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Deleted cache record #%03d.", id))).
 			WithEvents(handleSubmit, fcmp.OnSubmit)
 	default:
 		if err := addUpdate(ctx, form); err != nil {
 			return fcmp.FnErr(ctx, err)
 		}
-		return fcmp.NewFn(ctx, dashboard(ctx, "Cache updated from submitted form data.")).
+		return fcmp.NewFn(ctx, dashboardView(ctx, "Cache updated from submitted form data.")).
 			WithEvents(handleSubmit, fcmp.OnSubmit)
 	}
 }
@@ -128,129 +127,14 @@ func deleteUpdate(ctx context.Context, id int) (bool, error) {
 	return true, nil
 }
 
-func dashboard(ctx context.Context, notice string) fcmp.HTML {
+func dashboardView(ctx context.Context, notice string) fcmp.Component {
 	updates, err := fcmp.UseCache[[]adminUpdate](ctx, updatesCacheKey)
 	if err != nil {
-		return fcmp.HTML(fmt.Sprintf(`<section><h1>Cache error</h1><p>%s</p></section>`, html.EscapeString(err.Error())))
+		return cacheError(err.Error())
 	}
 
 	history, _ := updates.History()
-	rows := updates.Value()
-
-	var b strings.Builder
-	b.WriteString(`<section class="dashboard">`)
-	b.WriteString(`<header class="dashboard__header">`)
-	b.WriteString(`<div>`)
-	b.WriteString(`<p class="eyebrow">Admin cache monitor</p>`)
-	b.WriteString(`<h1>Manual update table</h1>`)
-	b.WriteString(`<p class="muted">Submit the form to add real example data to fcmp cache and re-render this table.</p>`)
-	b.WriteString(`</div>`)
-	b.WriteString(`<div class="status">`)
-	b.WriteString(`<span class="status__dot"></span>`)
-	b.WriteString(html.EscapeString(notice))
-	b.WriteString(`</div>`)
-	b.WriteString(`</header>`)
-
-	b.WriteString(`<div class="metrics">`)
-	b.WriteString(metric("Cached rows", len(rows)))
-	b.WriteString(metric("History snapshots", len(history)))
-	b.WriteString(`</div>`)
-
-	b.WriteString(updateForm())
-	b.WriteString(updateTable(rows))
-	b.WriteString(recordWindow(rows))
-	b.WriteString(historyWindow(history))
-	b.WriteString(`</section>`)
-
-	return fcmp.HTML(b.String())
-}
-
-func updateForm() string {
-	return `<form class="update-form">
-		<input type="hidden" name="intent" value="add">
-		<label>
-			<span>Source</span>
-			<input name="source" value="Billing service">
-		</label>
-		<label>
-			<span>Status</span>
-			<select name="status">
-				<option value="ok">ok</option>
-				<option value="queued">queued</option>
-				<option value="warning">warning</option>
-			</select>
-		</label>
-		<label class="message-field">
-			<span>Message</span>
-			<input name="message" value="Invoice reconciliation completed">
-		</label>
-		<button type="submit">Add update</button>
-	</form>`
-}
-
-func updateTable(rows []adminUpdate) string {
-	var b strings.Builder
-	b.WriteString(`<div class="table-wrap">`)
-	b.WriteString(`<table>`)
-	b.WriteString(`<thead><tr><th>ID</th><th>Received</th><th>Source</th><th>Status</th><th>Message</th><th>Actions</th></tr></thead>`)
-	b.WriteString(`<tbody>`)
-	if len(rows) == 0 {
-		b.WriteString(`<tr><td colspan="6" class="empty">No cache updates yet. Submit the form above.</td></tr>`)
-	}
-	for _, row := range rows {
-		b.WriteString(`<tr>`)
-		b.WriteString(fmt.Sprintf(`<td>#%03d</td>`, row.ID))
-		b.WriteString(fmt.Sprintf(`<td>%s</td>`, html.EscapeString(row.ReceivedAt.Format("15:04:05"))))
-		b.WriteString(fmt.Sprintf(`<td>%s</td>`, html.EscapeString(row.Source)))
-		b.WriteString(fmt.Sprintf(`<td><span class="pill pill--%s">%s</span></td>`, statusClass(row.Status), html.EscapeString(row.Status)))
-		b.WriteString(fmt.Sprintf(`<td>%s</td>`, html.EscapeString(row.Message)))
-		b.WriteString(fmt.Sprintf(`<td>
-			<form class="delete-form">
-				<input type="hidden" name="intent" value="delete">
-				<input type="hidden" name="id" value="%d">
-				<button class="button-danger" type="submit">Delete</button>
-			</form>
-		</td>`, row.ID))
-		b.WriteString(`</tr>`)
-	}
-	b.WriteString(`</tbody></table>`)
-	b.WriteString(`</div>`)
-	return b.String()
-}
-
-func recordWindow(rows []adminUpdate) string {
-	var b strings.Builder
-	b.WriteString(`<section class="record-window">`)
-	b.WriteString(`<div class="record-window__header">`)
-	b.WriteString(`<h2>Full cache contents</h2>`)
-	b.WriteString(`<p>Terminal-style dump of the current admin_updates cache value.</p>`)
-	b.WriteString(`</div>`)
-
-	if len(rows) == 0 {
-		b.WriteString(`<pre class="cache-terminal"><code>admin_updates = []adminUpdate{}</code></pre>`)
-		b.WriteString(`</section>`)
-		return b.String()
-	}
-
-	b.WriteString(`<pre class="cache-terminal"><code>`)
-	b.WriteString(html.EscapeString(formatCacheDump(rows)))
-	b.WriteString(`</code></pre>`)
-	b.WriteString(`</section>`)
-	return b.String()
-}
-
-func historyWindow(history map[string][]adminUpdate) string {
-	var b strings.Builder
-	b.WriteString(`<section class="record-window">`)
-	b.WriteString(`<div class="record-window__header">`)
-	b.WriteString(`<h2>Cache history store</h2>`)
-	b.WriteString(`<p>Every Set call records a version here because Record(true) is enabled.</p>`)
-	b.WriteString(`</div>`)
-	b.WriteString(`<pre class="cache-terminal cache-terminal--history"><code>`)
-	b.WriteString(html.EscapeString(formatHistoryDump(history)))
-	b.WriteString(`</code></pre>`)
-	b.WriteString(`</section>`)
-	return b.String()
+	return dashboard(notice, updates.Value(), history)
 }
 
 func formatCacheDump(rows []adminUpdate) string {
@@ -352,14 +236,6 @@ func clean(value string, fallback string) string {
 		return fallback
 	}
 	return value
-}
-
-func metric(label string, value int) string {
-	return fmt.Sprintf(
-		`<article class="metric"><strong>%d</strong><span>%s</span></article>`,
-		value,
-		html.EscapeString(label),
-	)
 }
 
 func statusClass(status string) string {

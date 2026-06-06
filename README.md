@@ -367,6 +367,7 @@ Or run it from the example folder:
 
 ```sh
 cd examples/readme-setup
+go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
 go run .
 ```
 
@@ -375,6 +376,11 @@ Then open:
 ```text
 http://localhost:8080
 ```
+
+The example UI is written as `templ` components in
+`examples/readme-setup/dashboard.templ`; `dashboard_templ.go` is the generated Go
+file checked in beside it. Regenerate that file from the repo root with
+`make example-templ`.
 
 The example serves the package's bundled browser client from `static/assets`, so
 it can test local `fcmp` changes without copying generated assets into the

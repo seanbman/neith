@@ -19,6 +19,7 @@ Run it from this folder:
 
 ```sh
 go mod tidy
+go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
 go run .
 ```
 
@@ -50,11 +51,11 @@ Then open:
 http://localhost:8080
 ```
 
-The example renders a small admin-style cache monitor. Fill out the form and
-submit it to add a row to the table. Use a row's `Delete` button to remove that
-record from the current cache value. Each add or delete stores a new value in the
-per-connection fcmp cache, records a cache history snapshot, and re-renders the
-table.
+The example renders a small admin-style cache monitor with `templ` components in
+`dashboard.templ`. Fill out the form and submit it to add a row to the table.
+Use a row's `Delete` button to remove that record from the current cache value.
+Each add or delete stores a new value in the per-connection fcmp cache, records
+a cache history snapshot, and re-renders the table.
 
 Beneath the table, one terminal-style panel shows the full literal contents of
 the current `admin_updates` cache. A second terminal-style panel shows the
@@ -67,10 +68,19 @@ The app follows the README quick-start shape:
 
 ```text
 examples/readme-setup/
+├── dashboard.templ
+├── dashboard_templ.go
 ├── go.mod
 ├── main.go
 └── static/
     └── index.html
+```
+
+`dashboard_templ.go` is generated from `dashboard.templ`. Regenerate it from the
+repo root with `make example-templ`, or from this folder with:
+
+```sh
+go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
 ```
 
 `main.go` serves the package's bundled browser client from `../../static/assets`

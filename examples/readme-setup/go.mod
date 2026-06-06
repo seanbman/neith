@@ -2,7 +2,10 @@ module fcmp-readme-setup
 
 go 1.21.5
 
-require github.com/snburman/fcmp v0.0.0
+require (
+	github.com/a-h/templ v0.2.513
+	github.com/snburman/fcmp v0.0.0
+)
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
