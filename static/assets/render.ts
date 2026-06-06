@@ -169,8 +169,9 @@ function setElementValue(elem: Element, value: string) {
  * Focuses an element only when the browser exposes a callable focus method.
  */
 function focusElement(elem: Element) {
-    if ("focus" in elem && typeof elem.focus === "function") {
-        (elem as HTMLElement).focus();
+    const focusable = elem as Element & { focus?: () => void };
+    if (typeof focusable.focus === "function") {
+        focusable.focus();
     }
 }
 
@@ -178,8 +179,9 @@ function focusElement(elem: Element) {
  * Blurs an element only when the browser exposes a callable blur method.
  */
 function blurElement(elem: Element) {
-    if ("blur" in elem && typeof elem.blur === "function") {
-        (elem as HTMLElement).blur();
+    const focusable = elem as Element & { blur?: () => void };
+    if (typeof focusable.blur === "function") {
+        focusable.blur();
     }
 }
 

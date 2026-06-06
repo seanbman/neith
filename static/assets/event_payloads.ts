@@ -1,6 +1,13 @@
 import type { EventTargetData, Upload } from "./fcmp_types";
 import { formValues, uploadFormFiles } from "./uploads";
 
+const formEvents = ["submit", "change"];
+const pointerEvents = ["pointerdown", "pointerup", "pointermove", "click", "contextmenu", "dblclick"];
+const dragEvents = ["drag", "dragend", "dragenter", "dragexitcapture", "dragleave", "dragover", "dragstart", "drop"];
+const mouseEvents = ["mousedown", "mouseup", "mousemove"];
+const keyboardEvents = ["keydown", "keyup", "keypress"];
+const touchEvents = ["touchstart", "touchend", "touchmove", "touchcancel"];
+
 /**
  * Normalized result returned by every event parser.
  *
@@ -24,25 +31,32 @@ export type ParsedEventData = {
  * non-JSON values.
  */
 export function parseEventData(eventName: string, ev: Event) {
-    if (["submit", "change"].includes(eventName)) {
+    if (isEventName(formEvents, eventName)) {
         return parseFormData(ev);
     }
-    if (["pointerdown", "pointerup", "pointermove", "click", "contextmenu", "dblclick"].includes(eventName)) {
+    if (isEventName(pointerEvents, eventName)) {
         return withoutUploads(parsePointerEvent(ev as PointerEvent));
     }
-    if (["drag", "dragend", "dragenter", "dragexitcapture", "dragleave", "dragover", "dragstart", "drop"].includes(eventName)) {
+    if (isEventName(dragEvents, eventName)) {
         return withoutUploads(parseDragEvent(ev as DragEvent));
     }
-    if (["mousedown", "mouseup", "mousemove"].includes(eventName)) {
+    if (isEventName(mouseEvents, eventName)) {
         return withoutUploads(parseMouseEvent(ev as MouseEvent));
     }
-    if (["keydown", "keyup", "keypress"].includes(eventName)) {
+    if (isEventName(keyboardEvents, eventName)) {
         return withoutUploads(parseKeyboardEvent(ev as KeyboardEvent));
     }
-    if (["touchstart", "touchend", "touchmove", "touchcancel"].includes(eventName)) {
+    if (isEventName(touchEvents, eventName)) {
         return withoutUploads(parseTouchEvent(ev as TouchEvent & { layerX: number; layerY: number; pageX: number; pageY: number }));
     }
     return withoutUploads(parseEventTarget(ev.target));
+}
+
+/**
+ * Checks whether an event name belongs to one parser group.
+ */
+function isEventName(group: string[], eventName: string) {
+    return group.includes(eventName);
 }
 
 /**
