@@ -36,7 +36,7 @@ func RenderComponent(c ...Component) (html string) {
 //
 // It implements io.Writer so components can render directly into it. The
 // dispatch field tracks how the browser should apply the rendered HTML, which
-// websocket connection it belongs to, and any event listeners attached to it.
+// client session it belongs to, and any event listeners attached to it.
 type FnComponent struct {
 	context.Context
 	dispatch *Dispatch
@@ -118,7 +118,7 @@ func (f FnComponent) Write(p []byte) (n int, err error) {
 // WithContext replaces the component context and refreshes dispatch details.
 //
 // Use this when a component value is created outside the request/event context
-// and later needs to be associated with the active connection before dispatch.
+// and later needs to be associated with the active client session before dispatch.
 func (f FnComponent) WithContext(ctx context.Context) FnComponent {
 	f.Context = ctx
 
@@ -133,12 +133,15 @@ func (f FnComponent) WithContext(ctx context.Context) FnComponent {
 
 // WithEvents attaches one server handler to one or more DOM event types.
 //
-// Each event listener is registered in the connection-local event registry and
+// Each event listener is registered in the client-session event registry and
 // serialized into the component's wrapper metadata. When the browser receives
 // this component, it attaches listeners and sends matching DOM events back to h.
 func (f FnComponent) WithEvents(h HandleFn, e ...OnEvent) FnComponent {
 	for _, v := range e {
 		el := newEventListener(v, f, h)
+		if el.ID == "" {
+			continue
+		}
 		f.dispatch.FnRender.EventListeners = append(f.dispatch.FnRender.EventListeners, el)
 	}
 	return f
@@ -333,7 +336,7 @@ func (f FnComponent) SwapElementInner(id string) FnComponent {
 
 // Dispatch immediately queues this component for the active browser connection.
 //
-// Dispatch requires a connection and handler ID from middleware context. If the
+// Dispatch requires a client session and handler ID from middleware context. If the
 // component was created outside an neith request/event context, Dispatch logs the
 // missing connection and returns without sending anything.
 func (f FnComponent) Dispatch() {
@@ -484,12 +487,13 @@ func (h *HTML) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// useContext copies websocket dispatch details onto a Dispatch.
+// useContext copies client-session dispatch details onto a Dispatch.
 //
-// NewFn and WithContext both use this to keep connection ID, handler ID, and
-// connection pointer assignment consistent.
+// NewFn and WithContext both use this to keep client ID, handler ID, and active
+// websocket connection pointer assignment consistent. Dispatch.ConnID keeps the
+// existing wire-protocol field name.
 func (d *Dispatch) useContext(details dispatchDetails) {
-	d.ConnID = details.ConnID
+	d.ConnID = details.ClientID
 	d.HandlerID = details.HandlerID
 	d.conn = details.Conn
 }

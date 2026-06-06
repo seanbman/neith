@@ -24,12 +24,12 @@ type Cache[T any] struct {
 	record    bool
 }
 
-// NewCache creates a typed cache entry for the current client connection.
+// NewCache creates a typed cache entry for the current client session.
 //
-// The connection ID is read from the dispatch details stored in ctx by the
-// neith middleware. Each connection gets its own cache store, so the same key can
+// The client ID is read from the dispatch details stored in ctx by the neith
+// middleware. Each client session gets its own cache store, so the same key can
 // be reused safely across different browser clients. NewCache returns
-// ErrCacheExists if the key already exists for this connection, including when
+// ErrCacheExists if the key already exists for this client session, including when
 // the existing cache was created with a different type.
 func NewCache[T any](ctx context.Context, key string, initial T) (Cache[T], error) {
 	dispatch, err := cacheDispatch(ctx)
@@ -37,13 +37,13 @@ func NewCache[T any](ctx context.Context, key string, initial T) (Cache[T], erro
 		return Cache[T]{}, err
 	}
 
-	if _, err := getCache[T](dispatch.ConnID, key); err == nil || errors.Is(err, ErrCacheWrongType) {
+	if _, err := getCache[T](dispatch.ClientID, key); err == nil || errors.Is(err, ErrCacheWrongType) {
 		return Cache[T]{}, ErrCacheExists
 	}
 
 	cache := Cache[T]{
 		data:      initial,
-		storeKey:  dispatch.ConnID,
+		storeKey:  dispatch.ClientID,
 		cacheKey:  key,
 		createdAt: time.Now(),
 		updatedAt: time.Now(),
@@ -56,7 +56,7 @@ func NewCache[T any](ctx context.Context, key string, initial T) (Cache[T], erro
 	return cache, nil
 }
 
-// UseCache retrieves a typed cache entry for the current client connection.
+// UseCache retrieves a typed cache entry for the current client session.
 //
 // The requested type T must match the type used when the cache was created. If
 // the key does not exist, UseCache returns ErrCacheNotFound; if the key exists
@@ -68,7 +68,7 @@ func UseCache[T any](ctx context.Context, key string) (Cache[T], error) {
 	if err != nil {
 		return Cache[T]{}, err
 	}
-	return getCache[T](dispatch.ConnID, key)
+	return getCache[T](dispatch.ClientID, key)
 }
 
 // Set writes a new value into the cache and refreshes its expiry timer.
@@ -116,7 +116,7 @@ func (c *Cache[T]) Value() T {
 	return cache.data
 }
 
-// Delete removes this cache entry from its connection-local store.
+// Delete removes this cache entry from its client-session store.
 //
 // Delete is idempotent from the caller's perspective: deleting a missing cache
 // does not return an error, though a missing store may be logged at debug level.
@@ -181,8 +181,8 @@ func (c *Cache[T]) History() (map[string]T, bool) {
 
 // id returns the stable identifier used by the event registry for this cache.
 //
-// The backing store is already split by connection ID, but callback and history
-// maps are global, so they need a combined connection/key identifier.
+// The backing store is already split by client session ID, but callback and history
+// maps are global, so they need a combined client/key identifier.
 func (c *Cache[T]) id() string {
 	return cacheID(c.storeKey, c.cacheKey)
 }
@@ -210,7 +210,7 @@ func watchCacheExpiry[T any](storeKey, cacheKey string, updatedAt time.Time, tim
 
 // cacheDispatch extracts neith dispatch details from a request/event context.
 //
-// Cache state is scoped to a connection ID, and that connection ID only exists
+// Cache state is scoped to a client session ID, and that ID only exists
 // inside middleware-populated context. This helper keeps NewCache and UseCache
 // consistent about missing-context errors.
 func cacheDispatch(ctx context.Context) (dispatchDetails, error) {
@@ -243,7 +243,7 @@ func resolveCacheTimeout[T any](current Cache[T], timeout ...time.Duration) time
 
 // OnCacheTimeOut registers a callback to run when this cache entry expires.
 //
-// The callback is keyed to this cache's connection/key pair. It runs after an
+// The callback is keyed to this cache's client/key pair. It runs after an
 // expiry watcher confirms the cache value is still the same update that started
 // the watcher.
 func OnCacheTimeOut[T any](c Cache[T], f func()) {
@@ -295,7 +295,7 @@ func newCacheEventRegistry() cacheEventRegistry {
 
 // Delete removes all callback and history entries for a cache identifier.
 //
-// This is used to clean up callback state when a cache or connection goes away.
+// This is used to clean up callback state when a cache or client session goes away.
 func (r *cacheEventRegistry) Delete(id string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -402,17 +402,17 @@ type cacheStore struct {
 	cache map[string]any
 }
 
-// newStoreManager creates an empty manager for connection-local cache stores.
+// newStoreManager creates an empty manager for client-session cache stores.
 //
 // The global store manager is process-local; each store inside it is keyed by a
-// connection ID.
+// client session ID.
 func newStoreManager() storeManager {
 	return storeManager{
 		stores: make(map[string]*cacheStore),
 	}
 }
 
-// get returns the cache store associated with a connection ID.
+// get returns the cache store associated with a client session ID.
 //
 // The returned cacheStore has its own lock for entry-level reads and writes.
 func (m *storeManager) get(key string) (*cacheStore, bool) {
@@ -422,9 +422,9 @@ func (m *storeManager) get(key string) (*cacheStore, bool) {
 	return store, ok
 }
 
-// ensure returns an existing cache store or creates one for the connection ID.
+// ensure returns an existing cache store or creates one for the client session ID.
 //
-// NewCache uses this to lazily create per-connection storage before writing the
+// NewCache uses this to lazily create per-client storage before writing the
 // first cache entry for that client.
 func (m *storeManager) ensure(key string) *cacheStore {
 	m.mu.Lock()
@@ -442,9 +442,9 @@ func (m *storeManager) ensure(key string) *cacheStore {
 	return store
 }
 
-// delete removes an entire connection-local cache store.
+// delete removes an entire client-session cache store.
 //
-// Connection cleanup calls this after the configured cache timeout when a client
+// Session cleanup calls this after the configured cache timeout when a client
 // has not reconnected.
 func (m *storeManager) delete(key string) {
 	m.mu.Lock()
@@ -509,7 +509,7 @@ func getCache[T any](storeKey string, cacheKey string) (Cache[T], error) {
 	return cache, nil
 }
 
-// deleteCache removes one cache entry from a connection-local store.
+// deleteCache removes one cache entry from a client-session store.
 //
 // Missing stores are logged at debug level instead of returned as errors because
 // Delete is part of cleanup paths where repeated calls should be harmless.
@@ -550,7 +550,7 @@ func (s *cacheStore) delete(key string) {
 	delete(s.cache, key)
 }
 
-// cacheID joins a connection ID and cache key into a callback/history key.
+// cacheID joins a client session ID and cache key into a callback/history key.
 //
 // The separator avoids accidental collisions between pairs such as ("ab", "c")
 // and ("a", "bc").

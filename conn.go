@@ -10,47 +10,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var connPool = conns{
-	pool: make(map[string]*conn),
-}
-
-func (c *conns) Get(id string) (*conn, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	conn, ok := c.pool[id]
-	return conn, ok
-}
-
-func (c *conns) Set(id string, conn *conn) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.pool[id] = conn
-}
-
-func (c *conns) Delete(id string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.pool, id)
-}
-
-func (c *conns) DeleteIf(id string, conn *conn) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.pool[id] == conn {
-		delete(c.pool, id)
-	}
-}
-
 type (
-	conns struct {
-		mu   sync.Mutex
-		pool map[string]*conn
-	}
 	conn struct {
 		websocket *websocket.Conn
+		session   *clientSession
 		closeOnce sync.Once
 		done      chan struct{}
-		ID        string
+		ClientID  string
 		HandlerID string
 		LastPing  time.Time
 		Key       string
@@ -58,7 +24,7 @@ type (
 	}
 )
 
-func newConn(w http.ResponseWriter, r *http.Request, handlerID string, ID string) (*conn, error) {
+func newConn(w http.ResponseWriter, r *http.Request, handlerID string, clientID string) (*conn, error) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
@@ -72,11 +38,15 @@ func newConn(w http.ResponseWriter, r *http.Request, handlerID string, ID string
 	c := &conn{
 		websocket: websocket,
 		done:      make(chan struct{}),
-		ID:        ID,
+		ClientID:  clientID,
 		HandlerID: handlerID,
 		Messages:  make(chan []byte, 16),
 	}
-	connPool.Set(c.ID, c)
+	session, previous := clientSessions.Attach(clientID, c)
+	c.session = session
+	if previous != nil && previous != c {
+		_ = previous.close()
+	}
 	return c, nil
 }
 
@@ -90,9 +60,9 @@ func (c *conn) close() error {
 			close(c.done)
 		}
 
-		if c.ID != "" {
+		if c.ClientID != "" {
 			evtListeners.Delete(c)
-			connPool.DeleteIf(c.ID, c)
+			clientSessions.Detach(c.ClientID, c)
 			go c.cleanupCacheAfterTimeout()
 		}
 
@@ -107,9 +77,8 @@ func (c *conn) close() error {
 
 func (c *conn) cleanupCacheAfterTimeout() {
 	time.Sleep(config.CacheTimeOut)
-	_, ok := connPool.Get(c.ID)
-	if !ok {
-		sm.delete(c.ID)
+	if clientSessions.DeleteIfInactive(c.ClientID) {
+		sm.delete(c.ClientID)
 	}
 }
 
@@ -193,7 +162,7 @@ func (c *conn) Publish(msg []byte) {
 		return
 	}
 
-	conn, _ := connPool.Get(c.ID)
+	conn, _ := clientSessions.ActiveConn(c.ClientID)
 	if conn != c {
 		return
 	}

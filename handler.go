@@ -249,18 +249,18 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 	handler.listen()
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.URL.Query().Get("neith_id")
+		clientID := r.URL.Query().Get("neith_id")
 		if r.URL.Query().Get("neith_upload") == "1" {
 			handler.Upload(w, r)
 			return
 		}
-		if id == "" {
+		if clientID == "" {
 			writer := Writer{ResponseWriter: w}
 			h(&writer, r)
 			w.Write(writer.buf)
 			return
 		}
-		newConnection, err := newConn(w, r, handler.id, id)
+		newConnection, err := newConn(w, r, handler.id, clientID)
 		if err != nil {
 			config.Logger.Error(ErrConnectionFailed)
 			config.Logger.Error(err)
@@ -271,7 +271,7 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 		newConnection.HandlerID = handler.id
 
 		ctx := context.WithValue(r.Context(), dispatchKey, dispatchDetails{
-			ConnID:    id,
+			ClientID:  clientID,
 			Conn:      newConnection,
 			HandlerID: handler.id,
 		})
@@ -280,15 +280,15 @@ func MiddleWareFn(h http.HandlerFunc, hf HandleFn) http.HandlerFunc {
 		// Send initial fn to client
 		fn := hf(ctx)
 		fn.dispatch.conn = newConnection
-		fn.dispatch.ConnID = id
+		fn.dispatch.ConnID = clientID
 		fn.dispatch.HandlerID = handler.id
 		handler.out <- fn
 
-		pinger := newDispatch(id)
+		pinger := newDispatch(clientID)
 		pinger.Function = ping
 		pinger.FnPing.Server = true
 		pinger.conn = newConnection
-		pinger.ConnID = id
+		pinger.ConnID = clientID
 		pinger.HandlerID = handler.id
 
 		go handler.pingConnection(newConnection, *pinger)
