@@ -25,6 +25,7 @@ func init() {
 		LogLevel:     Debug,
 		Logger:       log.NewWithOptions(os.Stderr, logOpts),
 	}
+	defaultRuntime.config = config
 }
 
 func TestMain(m *testing.M) {
@@ -271,8 +272,8 @@ type testStruct struct {
 }
 
 func resetTestCacheStore() {
-	sm = newStoreManager()
-	cacheEvents = newCacheEventRegistry()
+	defaultRuntime.stores = newStoreManager()
+	defaultRuntime.cacheEvents = newCacheEventRegistry()
 }
 
 func waitCacheDeleted(t *testing.T, key string) {
