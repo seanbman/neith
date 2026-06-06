@@ -1,6 +1,6 @@
 # Component
 
-The component API is the core of neith's rendering model. A component renders
+The component API is the core of Neith's rendering model. A component renders
 HTML on the server, and `FnComponent` carries that HTML plus instructions for
 how the browser should apply it.
 
@@ -25,7 +25,7 @@ func clicked(ctx context.Context) neith.FnComponent {
 
 ## `Component`
 
-Any type that implements this interface can be rendered by neith:
+Any type that implements this interface can be rendered by Neith:
 
 ```go
 type Component interface {
@@ -115,7 +115,7 @@ err := neith.NewFn(ctx, neith.HTML(`<p>Hello</p>`)).Render(ctx, &out)
 
 Notes:
 
-- Usually called internally by neith.
+- Usually called internally by Neith.
 - The wrapper contains event metadata for the browser client.
 - Returns writer errors.
 
@@ -141,7 +141,7 @@ Replaces the component context and refreshes connection dispatch details.
 fn = fn.WithContext(ctx)
 ```
 
-Use this when a component was created before the active neith context was
+Use this when a component was created before the active Neith context was
 available, but needs to be dispatched later.
 
 ## `WithEvents(handler, events...)`
@@ -318,7 +318,7 @@ neith.NewFn(ctx, neith.HTML(`<p>Saved</p>`)).
 
 Notes:
 
-- Requires a valid neith context with a websocket connection.
+- Requires a valid Neith context with a websocket connection.
 - Event handlers usually return `FnComponent` instead of calling `Dispatch`.
 - Use `Dispatch` for side effects inside a handler.
 

@@ -1,7 +1,7 @@
 # Cache
 
 The cache API stores typed, per-client state. A cache entry belongs to the
-current neith connection, which means two browser clients can use the same cache
+current Neith connection, which means two browser clients can use the same cache
 key without sharing values.
 
 Cache functions must be called with a context created by `neith.MiddleWareFn`.
@@ -51,7 +51,7 @@ Notes:
 
 - `T` is inferred from `initial`.
 - The key is scoped to the current browser connection.
-- Returns `ErrCtxMissingDispatch` if `ctx` was not created by neith middleware.
+- Returns `ErrCtxMissingDispatch` if `ctx` was not created by Neith middleware.
 - Returns `ErrCacheExists` if the key already exists, even if the existing value
   has a different type.
 

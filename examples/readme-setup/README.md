@@ -1,6 +1,6 @@
-# neith README Setup
+# Neith README Setup
 
-This folder mimics a small app created by a programmer using `neith` from the
+This folder mimics a small app created by a programmer using Neith from the
 outside.
 
 It has its own Go module and imports:
@@ -54,7 +54,7 @@ http://localhost:8080
 The example renders a small admin-style cache monitor with `templ` components in
 `dashboard.templ`. Fill out the form and submit it to add a row to the table.
 Use a row's `Delete` button to remove that record from the current cache value.
-Each add or delete stores a new value in the per-connection neith cache, records
+Each add or delete stores a new value in the per-connection Neith cache, records
 a cache history snapshot, and re-renders the table.
 
 Beneath the table, one terminal-style panel shows the full literal contents of
@@ -84,4 +84,4 @@ go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
 ```
 
 `main.go` serves the package's bundled browser client from `../../static/assets`
-so the example can test local `neith` changes without copying generated assets.
+so the example can test local Neith changes without copying generated assets.

@@ -1,6 +1,6 @@
-# neith
+# Neith
 
-`neith` is a small Go package for building server-rendered, interactive HTML components.
+Neith is a small Go package for building server-rendered, interactive HTML components.
 It wraps Go components with a WebSocket-backed dispatch layer so the server can render
 HTML, respond to DOM events, update elements, redirect the browser, call client-side
 JavaScript, and keep per-client state.
@@ -14,7 +14,7 @@ type Component interface {
 ```
 
 That means plain `neith.HTML`, `templ` components, or your own renderable types can be
-used as neith components.
+used as Neith components.
 
 ## Features
 
@@ -35,7 +35,7 @@ used as neith components.
 go get github.com/seanbman/neith
 ```
 
-`neith` requires Go 1.21 or newer.
+Neith requires Go 1.21 or newer.
 
 ## Quick Start
 
@@ -159,7 +159,7 @@ type, such as `neith.PointerEvent`, `neith.DragEvent`, or your own form-data str
 Event targets include the element ID, name, classes, tag name, HTML, value, checked,
 disabled, hidden, inline style, attributes, dataset, and selected option values. For
 mouse, pointer, drag, touch, and keyboard payloads, `source` is the element that
-caused the event and `component` is the neith wrapper listening for it. For submit
+caused the event and `component` is the Neith wrapper listening for it. For submit
 events, `EventSubmitter` returns the button or input that submitted the form.
 
 ```go
@@ -258,7 +258,7 @@ disconnects are retried with capped exponential backoff instead of reloading the
 
 ## Cache
 
-`neith` includes a generic, per-connection cache. Create a cache once, then reuse it
+Neith includes a generic, per-connection cache. Create a cache once, then reuse it
 from later handlers for the same client connection.
 
 ```go
@@ -383,7 +383,7 @@ file checked in beside it. Regenerate that file from the repo root with
 `make example-templ`.
 
 The example serves the package's bundled browser client from `static/assets`, so
-it can test local `neith` changes without copying generated assets into the
+it can test local Neith changes without copying generated assets into the
 example folder.
 
 ## Detailed Notes

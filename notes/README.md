@@ -1,4 +1,4 @@
-# neith Notes
+# Neith Notes
 
 This folder contains detailed notes and usage examples for the public parts of
 the package. The goal is to explain how a programmer should use each function
