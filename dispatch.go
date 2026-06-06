@@ -6,7 +6,6 @@ import "encoding/json"
 type functionName string
 
 const (
-	auth     functionName = "auth"
 	ping     functionName = "ping"
 	render   functionName = "render"
 	class    functionName = "class"
