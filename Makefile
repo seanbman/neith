@@ -1,6 +1,6 @@
 .PHONY: templ example-templ example example-debug
 
-VERSION ?= 0.4.0
+VERSION ?= 0.4.1
 TAG ?= v$(VERSION)
 TAG_FLAGS ?= -s
 ESBUILD = ./es-build
