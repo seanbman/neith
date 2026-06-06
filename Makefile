@@ -1,6 +1,10 @@
 .PHONY: templ example-templ example example-debug
 
+<<<<<<< Updated upstream
 VERSION ?= 0.4.0
+=======
+VERSION ?= 0.4.11
+>>>>>>> Stashed changes
 TAG ?= v$(VERSION)
 TAG_FLAGS ?= -s
 ESBUILD = ./es-build

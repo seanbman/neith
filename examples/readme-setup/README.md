@@ -54,7 +54,7 @@ http://localhost:8080
 The example renders a small admin-style cache monitor with `templ` components in
 `dashboard.templ`. Fill out the form and submit it to add a row to the table.
 Use a row's `Delete` button to remove that record from the current cache value.
-Each add or delete stores a new value in the per-connection Neith cache, records
+Each add or delete stores a new value in the client-session Neith cache, records
 a cache history snapshot, and re-renders the table.
 
 Beneath the table, one terminal-style panel shows the full literal contents of

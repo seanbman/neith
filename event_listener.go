@@ -109,7 +109,7 @@ type EventListener struct {
 
 func newEventListener(on OnEvent, f FnComponent, h HandleFn) EventListener {
 	if f.dispatch.conn == nil {
-		config.Logger.Error("connection not found")
+		f.dispatch.runtime().Config().Logger.Error("connection not found")
 		return EventListener{}
 	}
 
@@ -120,7 +120,7 @@ func newEventListener(on OnEvent, f FnComponent, h HandleFn) EventListener {
 		Handler:  h,
 		On:       on,
 	}
-	evtListeners.Add(f.dispatch.conn, el)
+	f.dispatch.runtime().eventListeners.Add(f.dispatch.conn, el)
 	return el
 }
 
@@ -129,8 +129,10 @@ type eventListeners struct {
 	el map[string]map[string]EventListener
 }
 
-var evtListeners = eventListeners{
-	el: make(map[string]map[string]EventListener),
+func newEventListeners() eventListeners {
+	return eventListeners{
+		el: make(map[string]map[string]EventListener),
+	}
 }
 
 func (e *eventListeners) Add(conn *conn, el EventListener) {

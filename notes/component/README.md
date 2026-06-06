@@ -66,7 +66,7 @@ html := neith.RenderComponent(
 Notes:
 
 - This does not send anything to a browser.
-- It does not require a websocket connection.
+- It does not require a live WebSocket connection.
 - It is useful for tests, logging, server-side composition, or initial HTML.
 
 ## `HTML`
@@ -94,7 +94,7 @@ fn := neith.NewFn(ctx, neith.HTML(`<h1>Dashboard</h1>`))
 Notes:
 
 - Gives the component a unique wrapper ID.
-- Pulls websocket dispatch details from `ctx` when available.
+- Pulls client-session dispatch details from `ctx` when available.
 - Renders the supplied component into an internal buffer.
 - Defaults to replacing the inner HTML of the first `<main>` tag.
 
@@ -135,7 +135,7 @@ Notes:
 
 ## `WithContext(ctx)`
 
-Replaces the component context and refreshes connection dispatch details.
+Replaces the component context and refreshes client-session dispatch details.
 
 ```go
 fn = fn.WithContext(ctx)
@@ -318,7 +318,7 @@ neith.NewFn(ctx, neith.HTML(`<p>Saved</p>`)).
 
 Notes:
 
-- Requires a valid Neith context with a websocket connection.
+- Requires a valid Neith context with a live WebSocket connection.
 - Event handlers usually return `FnComponent` instead of calling `Dispatch`.
 - Use `Dispatch` for side effects inside a handler.
 
@@ -391,7 +391,7 @@ NewFn(ctx, component)
 create Dispatch + unique component ID
         |
         v
-copy websocket context details when available
+copy runtime + client-session context details when available
         |
         v
 render Component into FnComponent buffer

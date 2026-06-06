@@ -30,7 +30,12 @@ const (
 )
 
 func init() {
-	config = &Config{
+	config = defaultConfig()
+	defaultRuntime = newRuntime(config)
+}
+
+func defaultConfig() *Config {
+	return &Config{
 		CacheTimeOut:    time.Minute * 30,
 		LogLevel:        Error,
 		Logger:          log.NewWithOptions(os.Stderr, logOpts),
@@ -53,6 +58,9 @@ type Config struct {
 func SetConfig(c *Config) {
 	config = c
 	config.Set()
+	if defaultRuntime != nil {
+		defaultRuntime.config = config
+	}
 }
 
 func (c *Config) Set() {

@@ -30,7 +30,7 @@ used as Neith components.
 - Run custom JavaScript functions from Go.
 - Read typed event payloads with `EventData[T]`.
 - Inspect uploaded files and form submitter metadata from handlers.
-- Store per-connection state with generic caches.
+- Store per-client-session state with generic caches.
 - Configure logging and cache expiry.
 
 ## Installation
@@ -98,6 +98,12 @@ func main() {
 Open `http://localhost:8080`. The first request serves the HTML shell. The browser
 client then opens a WebSocket back to the same route with `?neith_id=...`, and
 `MiddleWareFn` sends the initial `FnComponent` to the client.
+
+Each call to `MiddleWareFn` creates an isolated Neith app runtime for that route.
+The browser's `neith_id` identifies one client session inside that app runtime,
+while the WebSocket is only the current live transport for the session. Refreshes
+or reconnects replace the transport without sharing cache or event state with
+other mounted Neith routes.
 
 ## Rendering Components
 
@@ -260,10 +266,12 @@ window.neith.on("beforeEventDispatch", ({ dispatch, event }) => {
 The socket emits `connect`, `disconnect`, and `reconnect` hooks. Unexpected
 disconnects are retried with capped exponential backoff instead of reloading the page.
 
-## Cache
+## Client Sessions And Cache
 
-Neith includes a generic, per-connection cache. Create a cache once, then reuse it
-from later handlers for the same client connection.
+Neith includes a generic cache scoped to the current client session in the current
+app runtime. Create a cache once, then reuse it from later handlers for the same
+browser client. Two visitors can use the same cache keys without sharing values,
+and two routes wrapped with `MiddleWareFn` keep separate runtimes.
 
 ```go
 func app(ctx context.Context) neith.FnComponent {

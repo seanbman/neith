@@ -2,8 +2,6 @@ package neith
 
 import "sync"
 
-var clientSessions = newClientSessionRegistry()
-
 // clientSession represents one browser client visiting a Neith app.
 //
 // A session can outlive a single websocket connection. Refreshes, reconnects,
