@@ -136,6 +136,69 @@ To render components to a string outside the live dispatch flow:
 html := neith.RenderComponent(neith.HTML(`<p>Rendered</p>`))
 ```
 
+## Readable Views And UI Components
+
+`neith.View` is a readability-focused wrapper around `NewFn`. It accepts the same
+minimal `neith.Component` interface, so existing `templ` components, raw
+`neith.HTML`, and custom Go renderers can be moved into Neith without changing how
+they render.
+
+```go
+func app(ctx context.Context) neith.FnComponent {
+	return neith.View(ctx, dashboard(rows),
+		neith.Label("dashboard"),
+		neith.On(neith.OnSubmit, save),
+		neith.IntoTag("main"),
+	)
+}
+```
+
+The lower-level API is still available when you want to step through every
+operation directly:
+
+```go
+return neith.NewFn(ctx, dashboard(rows)).
+	WithLabel("dashboard").
+	WithEvents(save, neith.OnSubmit).
+	SwapTagInner("main")
+```
+
+Neith also includes an optional `ui` package for small, generic application
+components. These components are normal `neith.Component` values, so they can be
+mixed with `templ` and raw HTML.
+
+```go
+import "github.com/seanbman/neith/ui"
+
+func settings(ctx context.Context) neith.FnComponent {
+	return neith.View(ctx,
+		ui.Panel(
+			ui.Heading("Settings", ui.Level(2)),
+			profileForm(), // existing templ component
+			neith.HTML(`<hr>`),
+			ui.Form(
+				ui.TextInput("source",
+					ui.Label("Source"),
+					ui.Value("Billing service"),
+				),
+				ui.Select("status",
+					ui.Label("Status"),
+					ui.Options("ok", "queued", "warning"),
+				),
+				ui.Button("Save", ui.Type("submit")),
+			),
+		),
+		neith.Label("settings"),
+		neith.On(neith.OnSubmit, saveSettings),
+		neith.IntoElement("content"),
+	)
+}
+```
+
+Use `View` to attach behavior and render targets. Use `ui` only where generic
+components make application code easier to read. Existing `templ` files can remain
+the source of detailed markup.
+
 ## Events
 
 Attach one or more DOM events with `WithEvents`.
@@ -353,6 +416,12 @@ Run it from the repo root:
 make example
 ```
 
+The example listens on `:8080` by default. If that port is already in use:
+
+```sh
+EXAMPLE_ADDR=:8081 make example
+```
+
 Run it in debug mode from VS Code with the `Debug README Example` launch
 configuration, or start a headless Delve server from the repo root:
 
@@ -383,15 +452,18 @@ go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
 go run .
 ```
 
+Set `EXAMPLE_ADDR=:8081` before `go run .` if `:8080` is already in use.
+
 Then open:
 
 ```text
 http://localhost:8080
 ```
 
-The example UI is written as `templ` components in
-`examples/readme-setup/dashboard.templ`; `dashboard_templ.go` is the generated Go
-file checked in beside it. Regenerate that file from the repo root with
+The example UI keeps its detailed markup in `templ` components in
+`examples/readme-setup/dashboard.templ`, then wraps those components with
+`neith.View` and `ui` helpers in `main.go`. `dashboard_templ.go` is the generated
+Go file checked in beside it. Regenerate that file from the repo root with
 `make example-templ`.
 
 The example serves the package's bundled browser client from `static/assets`, so

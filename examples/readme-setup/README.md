@@ -23,6 +23,12 @@ go run github.com/a-h/templ/cmd/templ@v0.2.513 generate
 go run .
 ```
 
+The example listens on `:8080` by default. If that port is already in use:
+
+```sh
+EXAMPLE_ADDR=:8081 go run .
+```
+
 Run it in debug mode from the repo root with VS Code's `Debug README Example`
 launch configuration, or start a headless Delve server:
 
@@ -52,10 +58,14 @@ http://localhost:8080
 ```
 
 The example renders a small admin-style cache monitor with `templ` components in
-`dashboard.templ`. Fill out the form and submit it to add a row to the table.
-Use a row's `Delete` button to remove that record from the current cache value.
-Each add or delete stores a new value in the client-session Neith cache, records
-a cache history snapshot, and re-renders the table.
+`dashboard.templ`. `main.go` wraps those existing templ components with
+`neith.View` and the generic `ui` package, showing how an existing templ app can
+migrate to Neith without rewriting its markup first.
+
+Fill out the form and submit it to add a row to the table. Use a row's `Delete`
+button to remove that record from the current cache value. Each add or delete
+stores a new value in the client-session Neith cache, records a cache history
+snapshot, and re-renders the table.
 
 Beneath the table, one terminal-style panel shows the full literal contents of
 the current `admin_updates` cache. A second terminal-style panel shows the

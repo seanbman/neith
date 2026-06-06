@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/seanbman/neith"
+	"github.com/seanbman/neith/ui"
 )
 
 const updatesCacheKey = "admin_updates"
@@ -40,8 +42,7 @@ func app(ctx context.Context) neith.FnComponent {
 	}
 	updates.Record(true)
 
-	return neith.NewFn(ctx, dashboardView(ctx, "Fill out the form to add a cache update.")).
-		WithEvents(handleSubmit, neith.OnSubmit)
+	return renderDashboard(ctx, "Fill out the form to add a cache update.")
 }
 
 func handleSubmit(ctx context.Context) neith.FnComponent {
@@ -61,17 +62,14 @@ func handleSubmit(ctx context.Context) neith.FnComponent {
 			return neith.FnErr(ctx, err)
 		}
 		if !deleted {
-			return neith.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Cache record #%03d was already gone.", id))).
-				WithEvents(handleSubmit, neith.OnSubmit)
+			return renderDashboard(ctx, fmt.Sprintf("Cache record #%03d was already gone.", id))
 		}
-		return neith.NewFn(ctx, dashboardView(ctx, fmt.Sprintf("Deleted cache record #%03d.", id))).
-			WithEvents(handleSubmit, neith.OnSubmit)
+		return renderDashboard(ctx, fmt.Sprintf("Deleted cache record #%03d.", id))
 	default:
 		if err := addUpdate(ctx, form); err != nil {
 			return neith.FnErr(ctx, err)
 		}
-		return neith.NewFn(ctx, dashboardView(ctx, "Cache updated from submitted form data.")).
-			WithEvents(handleSubmit, neith.OnSubmit)
+		return renderDashboard(ctx, "Cache updated from submitted form data.")
 	}
 }
 
@@ -130,11 +128,25 @@ func deleteUpdate(ctx context.Context, id int) (bool, error) {
 func dashboardView(ctx context.Context, notice string) neith.Component {
 	updates, err := neith.UseCache[[]adminUpdate](ctx, updatesCacheKey)
 	if err != nil {
-		return cacheError(err.Error())
+		return ui.Panel(
+			ui.Heading("Cache error", ui.Level(1)),
+			ui.Alert(err.Error()),
+		)
 	}
 
 	history, _ := updates.History()
-	return dashboard(notice, updates.Value(), history)
+	return ui.Stack(
+		ui.Class("dashboard-wrapper"),
+		dashboard(notice, updates.Value(), history),
+	)
+}
+
+func renderDashboard(ctx context.Context, notice string) neith.FnComponent {
+	return neith.View(ctx, dashboardView(ctx, notice),
+		neith.Label("readme-dashboard"),
+		neith.On(neith.OnSubmit, handleSubmit),
+		neith.IntoTag("main"),
+	)
 }
 
 func formatCacheDump(rows []adminUpdate) string {
@@ -253,6 +265,15 @@ func main() {
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("../../static/assets"))))
 	http.HandleFunc("/", neith.MiddleWareFn(page, app))
 
-	log.Println("listening on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	addr := os.Getenv("EXAMPLE_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	displayAddr := addr
+	if strings.HasPrefix(addr, ":") {
+		displayAddr = "localhost" + addr
+	}
+
+	log.Println("listening on http://" + displayAddr)
+	log.Fatal(http.ListenAndServe(addr, nil))
 }
