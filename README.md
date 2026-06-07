@@ -18,16 +18,19 @@ type Component interface {
 ```
 
 That means plain `neith.HTML`, `templ` components, or your own renderable types can be
-used as Neith components.
+used as Neith components. Wrap them with `View` for interactive pages, or use
+`NewFn` when you need direct control over the dispatch layer.
 
 ## Table Of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [API Layers](#api-layers)
 - [Browser Assets](#browser-assets)
 - [Rendering Components](#rendering-components)
 - [Readable Views And UI Components](#readable-views-and-ui-components)
+- [Lower-Level Dispatch](#lower-level-dispatch)
 - [Events](#events)
   - [File Uploads](#file-uploads)
 - [Server-Initiated Updates](#server-initiated-updates)
@@ -135,6 +138,44 @@ the WebSocket is only the current live transport for the session. Refreshes or
 reconnects replace the transport without sharing cache or event state with other
 mounted Neith routes.
 
+## API Layers
+
+Neith exposes one rendering model at several levels of abstraction. Most
+application code should stay in the top two layers and only drop lower when you
+need explicit control.
+
+| Layer | Use when | Key APIs |
+| --- | --- | --- |
+| **App shell** | Mounting routes and serving the page | `App`, `NewPage`, page options |
+| **Interactive views** | Building pages and event handlers | `View`, `OnClick`, `IntoTag`, … |
+| **Handler shortcuts** | Returning errors, redirects, or side effects from a handler | `FnErr`, `RedirectURL`, `AddClasses`, `JS`, … |
+| **Dispatch primitives** | Stepping through every dispatch detail | `NewFn`, `FnComponent` methods, `Dispatch()` |
+| **Render primitives** | Plain HTML with no live connection | `Component`, `HTML`, `RenderComponent` |
+
+**Recommended path:** wrap markup in `View`, attach behavior with `OnClick` /
+`OnSubmit` / `IntoTag`, and return `FnErr` or `RedirectURL` from handlers. Use
+`NewFn` when you are building library code, tests, or a custom wrapper around
+Neith's dispatch model.
+
+`View` is a readability-focused wrapper around `NewFn`. It accepts the same
+`Component` interface, so `templ` components, `neith.HTML`, and custom renderers
+work unchanged — only the wiring API changes.
+
+```go
+// Higher level — typical application code
+return neith.View(ctx, dashboard(rows),
+	neith.Label("dashboard"),
+	neith.OnSubmit(save),
+	neith.IntoTag("main"),
+)
+
+// Lower level — same result, more explicit
+return neith.NewFn(ctx, dashboard(rows)).
+	WithLabel("dashboard").
+	WithEvents(save, neith.EventSubmit).
+	SwapTagInner("main")
+```
+
 ## Browser Assets
 
 Neith apps need the Go package and the browser client file. Download
@@ -176,41 +217,47 @@ variables with `neith.Style(...)`.
 
 ## Rendering Components
 
-Create an `FnComponent` with `NewFn(ctx, component)`. By default, it swaps the inner
-HTML of the first `<main>` tag.
+Use `View` to turn any `Component` into an interactive `FnComponent`. By default
+Neith swaps the inner HTML of the first `<main>` tag, which matches the shell
+that `App` generates.
 
 ```go
 func view(ctx context.Context) neith.FnComponent {
-	return neith.NewFn(ctx, neith.HTML(`<h1>Dashboard</h1>`))
+	return neith.View(ctx, neith.HTML(`<h1>Dashboard</h1>`))
 }
 ```
 
-You can change where the rendered HTML is applied:
+Attach events and choose a render target with `View` options:
 
 ```go
-neith.NewFn(ctx, component).SwapTagInner("main")
-neith.NewFn(ctx, component).SwapTagOuter("main")
-neith.NewFn(ctx, component).AppendTag("ul")
-neith.NewFn(ctx, component).PrependTag("ul")
-
-neith.NewFn(ctx, component).SwapElementInner("content")
-neith.NewFn(ctx, component).SwapElementOuter("content")
-neith.NewFn(ctx, component).AppendElement("items")
-neith.NewFn(ctx, component).PrependElement("items")
+return neith.View(ctx, component,
+	neith.OnClick(handler),
+	neith.IntoTag("main"),        // swap inner HTML of first <main>
+	neith.IntoElement("content"), // swap inner HTML of one element by ID
+	neith.AppendToTag("ul"),
+	neith.PrependToElement("items"),
+	neith.SwapTagOuter("main"),
+	neith.SwapElementInner("panel"),
+)
 ```
 
-To render components to a string outside the live dispatch flow:
+`IntoTag` and `IntoElement` are the common choices for full-region updates.
+`AppendTo*` / `PrependTo*` / `Swap*` cover the rest of the render-target matrix.
+
+To render components to a string outside the live dispatch flow — tests, logging,
+or server-side composition with no WebSocket — use `RenderComponent`:
 
 ```go
 html := neith.RenderComponent(neith.HTML(`<p>Rendered</p>`))
 ```
 
+For the underlying `NewFn` / `FnComponent` API, see [Lower-Level Dispatch](#lower-level-dispatch).
+
 ## Readable Views And UI Components
 
-`neith.View` is a readability-focused wrapper around `NewFn`. It accepts the same
-minimal `neith.Component` interface, so existing `templ` components, raw
-`neith.HTML`, and custom Go renderers can be moved into Neith without changing how
-they render.
+`View` keeps the component contract the same as `templ`, raw `neith.HTML`, or
+your own `Component` types. Application code wires behavior through options
+instead of chaining `FnComponent` methods.
 
 ```go
 func app(ctx context.Context) neith.FnComponent {
@@ -220,16 +267,6 @@ func app(ctx context.Context) neith.FnComponent {
 		neith.IntoTag("main"),
 	)
 }
-```
-
-The lower-level API is still available when you want to step through every
-operation directly:
-
-```go
-return neith.NewFn(ctx, dashboard(rows)).
-	WithLabel("dashboard").
-	WithEvents(save, neith.EventSubmit).
-	SwapTagInner("main")
 ```
 
 Neith also includes an optional `ui` package for small, generic application
@@ -277,18 +314,75 @@ The optional `/assets/neith-ui.css` stylesheet gives `ui` components neutral
 defaults and exposes CSS variables such as `--n-ui-primary-bg`,
 `--n-ui-border`, `--n-ui-radius`, and `--n-ui-font` for application themes.
 
+## Lower-Level Dispatch
+
+Reach for `NewFn` when you need direct access to `FnComponent` — custom
+wrappers, library code, tests, or flows that call `Dispatch()` mid-handler.
+Application handlers should prefer `View` and the handler shortcuts below.
+
+`NewFn(ctx, component)` creates an `FnComponent`, renders the component into
+an internal buffer, and defaults to swapping the inner HTML of `<main>`.
+
+```go
+func view(ctx context.Context) neith.FnComponent {
+	return neith.NewFn(ctx, neith.HTML(`<h1>Dashboard</h1>`))
+}
+```
+
+Configure behavior by chaining `FnComponent` methods:
+
+```go
+return neith.NewFn(ctx, component).
+	WithLabel("dashboard").
+	WithEvents(save, neith.EventSubmit).
+	SwapTagInner("main")
+```
+
+Render-target methods mirror the `View` options:
+
+```go
+fn.SwapTagInner("main")
+fn.SwapTagOuter("main")
+fn.AppendTag("ul")
+fn.PrependTag("ul")
+fn.SwapElementInner("content")
+fn.SwapElementOuter("content")
+fn.AppendElement("items")
+fn.PrependElement("items")
+```
+
+Return special dispatches from handlers:
+
+```go
+return neith.FnErr(ctx, err)
+return neith.RedirectURL(ctx, "/login")
+return neith.NewFn(ctx, nil).WithRedirect("/login")
+return neith.NewFn(ctx, nil).WithError(err)
+return neith.NewFn(ctx, nil).JS("toast", "Saved")
+```
+
+Send an extra effect without replacing the handler's return value:
+
+```go
+neith.NewFn(ctx, notice()).AppendElement("notifications").Dispatch()
+```
+
+`FnComponent` also implements `Component` and `io.Writer` for advanced
+composition. See `notes/component/README.md` for a function-by-function reference.
+
 ## Events
 
-Attach one or more DOM events with `WithEvents`.
+Attach DOM events with `View` options. `OnSubmit`, `OnClick`, `OnChange`,
+`OnInput`, and `OnKeyDown` cover the common cases; `On` accepts any `OnEvent`.
 
 ```go
 func form(ctx context.Context) neith.FnComponent {
-	return neith.NewFn(ctx, neith.HTML(`
+	return neith.View(ctx, neith.HTML(`
 		<form>
 			<input name="name" placeholder="Name">
 			<button>Save</button>
 		</form>
-	`)).WithEvents(save, neith.EventSubmit)
+	`), neith.OnSubmit(save))
 }
 
 func save(ctx context.Context) neith.FnComponent {
@@ -297,10 +391,16 @@ func save(ctx context.Context) neith.FnComponent {
 		return neith.FnErr(ctx, err)
 	}
 
-	return neith.NewFn(ctx, neith.HTML(
+	return neith.View(ctx, neith.HTML(
 		"<p>Saved " + values["name"] + "</p>",
-	)).SwapTagInner("main")
+	), neith.IntoTag("main"))
 }
+```
+
+The lower-level equivalent is `WithEvents`:
+
+```go
+return neith.NewFn(ctx, form).WithEvents(save, neith.EventSubmit)
 ```
 
 For pointer, mouse, keyboard, drag, touch, input, change, submit, and other DOM events,
@@ -325,10 +425,10 @@ func save(ctx context.Context) neith.FnComponent {
 		return neith.FnErr(ctx, err)
 	}
 	if submitter != nil && submitter.Value == "delete" {
-		return neith.NewFn(ctx, neith.HTML("<p>Delete requested</p>"))
+		return neith.View(ctx, neith.HTML("<p>Delete requested</p>"))
 	}
 
-	return neith.NewFn(ctx, neith.HTML("<p>Saved " + values["name"] + "</p>"))
+	return neith.View(ctx, neith.HTML("<p>Saved " + values["name"] + "</p>"))
 }
 ```
 
@@ -350,7 +450,7 @@ func upload(ctx context.Context) neith.FnComponent {
 		return neith.FnErr(ctx, err)
 	}
 
-	return neith.NewFn(ctx, neith.HTML(
+	return neith.View(ctx, neith.HTML(
 		"<p>Saved " + values["title"] + " with " + uploads[0].FileName + "</p>",
 	))
 }
@@ -361,7 +461,9 @@ directory under `neith-uploads` when no directory is configured.
 
 ## Server-Initiated Updates
 
-Handlers can dispatch extra effects while handling an event:
+While handling an event, call the immediate helpers to mutate the page before
+returning your main `View`. These functions build a `NewFn` dispatch internally
+and call `Dispatch()` for you.
 
 ```go
 func clicked(ctx context.Context) neith.FnComponent {
@@ -369,7 +471,7 @@ func clicked(ctx context.Context) neith.FnComponent {
 	neith.RemoveClasses(ctx, "status", "pending")
 	neith.JS(ctx, "Testing", "called from Go")
 
-	return neith.NewFn(ctx, neith.HTML(`<p id="status">Done</p>`))
+	return neith.View(ctx, neith.HTML(`<p id="status">Done</p>`))
 }
 ```
 
@@ -428,12 +530,14 @@ func counter(ctx context.Context) neith.FnComponent {
 
 	_ = count.Set(count.Value() + 1)
 
-	return neith.NewFn(ctx, neith.HTML(fmt.Sprintf(
+	return neith.View(ctx, neith.HTML(fmt.Sprintf(
 		`<button>Clicked %d times</button>`,
 		count.Value(),
-	))).WithEvents(func(ctx context.Context) neith.FnComponent {
-		return counter(ctx)
-	}, neith.EventClick)
+	)),
+		neith.OnClick(func(ctx context.Context) neith.FnComponent {
+			return counter(ctx)
+		}),
+	)
 }
 ```
 
@@ -605,21 +709,21 @@ func (g Greeting) Render(ctx context.Context, w io.Writer) error {
 }
 ```
 
-Use `HTML`, `RenderComponent`, `NewFn`, and `View` depending on how close to the
-wire you want to be.
+Pick the API layer that matches the job:
 
 ```go
+// Primitives — no live connection
 raw := neith.HTML(`<p>Ready</p>`)
-_, _ = raw.Write([]byte(`<p>More</p>`))
 html := neith.RenderComponent(raw, Greeting{Name: "Sean"})
-fn := neith.NewFn(ctx, neith.HTML(html)).WithLabel("status")
-return neith.View(ctx, fn, neith.IntoTag("main"))
-```
 
-The lower-level `FnComponent` methods are still public for explicit dispatch
-workflows.
+// Interactive view — normal handler return value
+return neith.View(ctx, Greeting{Name: "Sean"},
+	neith.Label("greeting"),
+	neith.OnClick(refresh),
+	neith.IntoTag("main"),
+)
 
-```go
+// Lower-level dispatch — explicit FnComponent control
 return neith.NewFn(ctx, card()).
 	WithContext(ctx).
 	WithLabel("card").
@@ -627,42 +731,9 @@ return neith.NewFn(ctx, card()).
 	SwapTagInner("main")
 ```
 
-Render-target methods mirror the `View` options.
-
-```go
-fn.AppendTag("ul")
-fn.PrependTag("ul")
-fn.SwapTagInner("main")
-fn.SwapTagOuter("main")
-fn.AppendElement("items")
-fn.PrependElement("items")
-fn.SwapElementInner("content")
-fn.SwapElementOuter("content")
-```
-
-Special dispatches can be returned from handlers.
-
-```go
-return neith.FnErr(ctx, err)
-return neith.RedirectURL(ctx, "/login")
-return neith.NewFn(ctx, nil).WithRedirect("/login")
-return neith.NewFn(ctx, nil).WithError(err)
-return neith.NewFn(ctx, nil).JS("toast", "Saved")
-```
-
-Dispatch an additional effect immediately.
-
-```go
-neith.NewFn(ctx, notice()).AppendElement("notifications").Dispatch()
-```
-
-`Render` and `Write` exist because `FnComponent` is also a component and writer.
-
-```go
-fn := neith.NewFn(ctx, nil)
-_, _ = fn.Write([]byte("<p>Buffered</p>"))
-_ = fn.Render(ctx, w)
-```
+`View` options and `FnComponent` methods are paired one-to-one for render
+targets, events, and labels. See [Lower-Level Dispatch](#lower-level-dispatch)
+for `Dispatch()`, `Render`, `Write`, and special return dispatches.
 
 ### Event Data
 
