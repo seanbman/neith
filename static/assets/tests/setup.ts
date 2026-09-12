@@ -28,25 +28,31 @@ function toProtocolFrame(data: unknown): unknown {
     return frame;
 }
 
+let clientSendPatched = false;
+
+function ensureClientSendPatched() {
+    if (clientSendPatched || typeof globalThis.WebSocket === "undefined") return;
+
+    const originalClientSend = globalThis.WebSocket.prototype.send;
+    globalThis.WebSocket.prototype.send = function (data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+        if (typeof data !== "string") return originalClientSend.call(this, data);
+
+        try {
+            const dispatch = decodeMessage(JSON.parse(data));
+            return originalClientSend.call(this, JSON.stringify(dispatch));
+        } catch {
+            return originalClientSend.call(this, data);
+        }
+    };
+    clientSendPatched = true;
+}
+
 // Most integration fixtures still construct the historical internal Dispatch shape.
 // Normalize server -> browser traffic to the real v1 wire envelope so every frame
-// enters production code through protocol.decodeMessage(...).
+// enters production code through protocol.decodeMessage(...). The mock WebSocket
+// global is installed when a mock server is created, so patch outbound traffic lazily.
 const originalServerSend = WS.prototype.send;
 WS.prototype.send = function (data: unknown) {
+    ensureClientSendPatched();
     return originalServerSend.call(this, toProtocolFrame(data) as never);
-};
-
-// The older integration assertions inspect internal Dispatch values on the mock
-// server. Preserve those assertions during Phase 2 while validating the outbound
-// v1 frame before converting it back to the internal representation for the test.
-const originalClientSend = globalThis.WebSocket.prototype.send;
-globalThis.WebSocket.prototype.send = function (data: string | ArrayBufferLike | Blob | ArrayBufferView) {
-    if (typeof data !== "string") return originalClientSend.call(this, data);
-
-    try {
-        const dispatch = decodeMessage(JSON.parse(data));
-        return originalClientSend.call(this, JSON.stringify(dispatch));
-    } catch {
-        return originalClientSend.call(this, data);
-    }
 };
