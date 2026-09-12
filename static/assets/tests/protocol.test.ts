@@ -1,7 +1,7 @@
 import { describe, expect, test } from "@jest/globals";
 import { API } from "../api";
 import { onHook } from "../hooks";
-import { Dispatch, Fun, PROTOCOL_VERSION } from "../neith_types";
+import { Dispatch, Fun, PROTOCOL_VERSION, ProtocolMessage } from "../neith_types";
 
 describe("protocol version boundary", () => {
     test("rejects unsupported versions without executing or replying", () => {
@@ -40,7 +40,7 @@ describe("protocol version boundary", () => {
         off();
     });
 
-    test("v1 ping replies preserve the negotiated version", () => {
+    test("v1 ping replies use the public envelope and do not leak internal dispatch fields", () => {
         const sent: string[] = [];
         const ws = { send: (message: string) => sent.push(message) } as unknown as WebSocket;
         const api = new API(ws);
@@ -52,8 +52,13 @@ describe("protocol version boundary", () => {
         } as Dispatch);
 
         expect(sent).toHaveLength(1);
-        const response = JSON.parse(sent[0]) as Dispatch;
+        const response = JSON.parse(sent[0]) as ProtocolMessage & Record<string, unknown>;
         expect(response.v).toBe(PROTOCOL_VERSION);
-        expect(response.ping.client).toBe(true);
+        expect(response.type).toBe(Fun.PING);
+        expect(response.payload).toEqual({ server: true, client: true });
+        expect(response).not.toHaveProperty("function");
+        expect(response).not.toHaveProperty("ping");
+        expect(response).not.toHaveProperty("buf");
+        expect(response).not.toHaveProperty("conn");
     });
 });
