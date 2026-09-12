@@ -1,12 +1,14 @@
 {
+  "edges": 204,
   "embedding": {
     "dims": null,
     "model": "BAAI/bge-small-en-v1.5",
     "provider": "fastembed"
   },
   "graph_hash": "69a398156aae3d4f47d35edb4f72f798e8330a2badaa9a7f311c63dd80d5a3a7",
+  "nodes": 202,
+  "previous_graph_hash": null,
   "publication_id": "69a398156aae3d4f",
   "published_at": "2026-09-12T20:55:18+00:00",
-  "schema_version": 2,
   "version": 1
 }
