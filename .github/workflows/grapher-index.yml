@@ -13,6 +13,7 @@ jobs:
   verify-and-index:
     if: ${{ !contains(github.event.head_commit.message || '', '[grapher-generated]') }}
     runs-on: ubuntu-latest
+    # Browser regressions must fail the gate rather than leave dev verification hung indefinitely.
     timeout-minutes: 15
     steps:
       - name: Check out repository
