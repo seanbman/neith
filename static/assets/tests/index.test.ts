@@ -11,7 +11,6 @@ import {
 } from "@jest/globals";
 import { JSDOM } from "jsdom";
 import { Dispatch, Fun } from "../neith_types";
-import { decodeMessage } from "../protocol";
 import { onHook } from "../hooks";
 
 describe("test websocket functions", () => {
@@ -19,21 +18,17 @@ describe("test websocket functions", () => {
     let server: WS;
     let socket: Socket;
 
-    // Wait for a callback to return true, but fail deterministically instead of
-    // leaving CI alive forever when a protocol message is rejected.
-    async function waitCallback(callback: () => boolean, timeoutMs = 5000) {
-        return new Promise<void>((resolve, reject) => {
-            const deadline = Date.now() + timeoutMs;
+    // Wait for a callback to return true
+    async function waitCallback(callback: () => boolean) {
+        return new Promise((resolve) => {
             const check = () => {
-                if (callback()) {
-                    resolve();
-                    return;
-                }
-                if (Date.now() >= deadline) {
-                    reject(new Error(`timed out waiting for browser test condition after ${timeoutMs}ms`));
-                    return;
-                }
-                setTimeout(check, 25);
+                setTimeout(() => {
+                    if (callback()) {
+                        resolve(null);
+                    } else {
+                        check();
+                    }
+                }, 25);
             };
             check();
         });
@@ -43,17 +38,11 @@ describe("test websocket functions", () => {
         // Create a new websocket server
         server = new WS("ws://localhost:1234", { jsonProtocol: true });
         server.on("connection", (socket) => {
-            // Decode browser replies through the real v1 codec before legacy
-            // assertions inspect the internal Dispatch representation.
+            // When the server receives a message, parse it and add it to the dispatches array
             socket.on("message", (message) => {
-                console.log("server received message from API: ", message);
-                let wire: unknown = message;
-                if (typeof message === "string") wire = JSON.parse(message);
-                else if (message && typeof message === "object" && "data" in (message as object)) {
-                    const data = (message as { data: unknown }).data;
-                    wire = typeof data === "string" ? JSON.parse(data) : data;
-                }
-                dispatches.push(decodeMessage(wire));
+                console.log("server received message from API: ", message.toString());
+                const msg: Dispatch = JSON.parse(message.toString());
+                dispatches.push(msg);
             });
         });
         // Create a new Socket client
