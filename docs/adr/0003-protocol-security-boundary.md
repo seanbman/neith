@@ -1,6 +1,6 @@
 # ADR 0003: Browser is a finite protocol interpreter
 
-Status: Accepted / Phase 2 implementation in progress
+Status: Accepted / Phase 2 complete; Phase 3 interpreter refactor next
 Date: 2026-09-10
 Plan: `docs/DEVELOPMENT_PLAN_0926-1.md`
 
@@ -16,7 +16,7 @@ The Neith browser runtime is a finite, versioned protocol interpreter. Protocol 
 
 Forbidden protocol mechanisms include `eval`, `new Function`, unrestricted property traversal/execution, and a generic remote `exec` instruction.
 
-Protocol v1 is explicit on both sides of the wire. Browser messages with a missing/unsupported protocol version or a server-only operation are rejected before handler execution. The current flat Dispatch payload is transitional v1 compatibility surface; Phase 2 will continue toward stricter typed payload validation before the tiny-interpreter refactor.
+Protocol v1 is explicit on both sides of the wire. Browser messages with a missing/unsupported protocol version or a server-only operation are rejected before handler execution. The current flat `Dispatch` representation remains an internal/transitional compatibility surface behind the public v1 envelope; Phase 3 will simplify that implementation into the tiny interpreter without weakening the boundary established here.
 
 WebSocket transport uses Gorilla's same-origin policy by default. Cross-origin behavior requires an explicit application policy. Inbound WebSocket messages have an application-configurable size limit with a secure default.
 
@@ -25,6 +25,12 @@ Neith session identity is server-issued. A normal page request establishes a cry
 Host `net/http` middleware remains the primary authentication/authorization mechanism. Neith additionally exposes an optional interactive authorization policy that runs immediately before WebSocket upgrades and upload handling. This gives applications a framework-boundary veto without making Neith an authentication product.
 
 The existing named custom-function mechanism is compatibility/advanced surface and must be constrained or replaced by explicit protocol primitives before 1.0.
+
+## Phase 2 verification
+
+Phase 2 is considered complete because the protocol/security exit criteria are represented in code and the `dev` verification gate covers the Go package, browser runtime, browser bundle, and semantic Grapher index. Browser protocol fixtures are normalized through the public v1 envelope, and CI now has a bounded job runtime so a protocol regression fails instead of leaving verification hung indefinitely.
+
+Phase 3 should build on this boundary rather than redesign it: consolidate browser effects into a small primitive instruction set, introduce batched mutation, separate listener/navigation behavior from transport-shaped legacy operations, and constrain or retire `custom`.
 
 ## Consequences
 
