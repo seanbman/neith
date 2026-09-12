@@ -29,7 +29,8 @@ function toProtocolFrame(data: unknown): unknown {
 
 // Historical integration fixtures still construct the internal Dispatch shape.
 // Normalize only server -> browser traffic to the public v1 envelope. Browser ->
-// server assertions decode the actual wire message inside the test itself.
+// server assertions decode the actual wire message inside the test itself, so
+// both directions cross the same codec boundary exercised by production code.
 const originalServerSend = WS.prototype.send;
 WS.prototype.send = function (data: unknown) {
     return originalServerSend.call(this, toProtocolFrame(data) as never);
