@@ -19,15 +19,31 @@ type FnPing struct {
 	Client bool `json:"client"`
 }
 
-// FnClass adds or removes CSS classes from a browser element.
+// Mutation is one allowlisted browser-side change. Multiple mutations may be
+// carried in one mutate instruction so related UI changes stay ordered.
+type Mutation struct {
+	Operation string   `json:"operation"`
+	Names     []string `json:"names,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Value     string   `json:"value,omitempty"`
+}
+
+// FnMutate applies a bounded batch of allowlisted changes to one element.
+type FnMutate struct {
+	TargetID  string     `json:"target_id"`
+	Mutations []Mutation `json:"mutations"`
+}
+
+// FnClass is the transitional pre-Phase-3 class payload. New server helpers
+// translate class changes to FnMutate rather than emitting this wire operation.
 type FnClass struct {
 	TargetID string   `json:"target_id"`
 	Remove   bool     `json:"remove"`
 	Names    []string `json:"names"`
 }
 
-// FnDOM applies a focused DOM mutation such as attribute, style, text, value,
-// focus, blur, scroll, enable, disable, or removal.
+// FnDOM is the transitional pre-Phase-3 DOM payload. New server helpers
+// translate focused DOM changes to FnMutate rather than emitting this operation.
 type FnDOM struct {
 	TargetID  string `json:"target_id"`
 	Operation string `json:"operation"`
